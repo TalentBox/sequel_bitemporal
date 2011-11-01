@@ -3,20 +3,24 @@ RSpec::Matchers.define :have_versions do |versions_str|
   @last_index = nil
   @last_version = nil
   match do |master|
-    master.versions.size == @table.size && @table.each.with_index.all? do |version, index|
+    versions = master.versions_dataset.order(:id).all
+    versions.size == @table.size && @table.each.with_index.all? do |version, index|
       @last_index = index
       @last_version = version
-      master_version = master.versions[index]
-      [:name, :price, :valid_from, :valid_to, :created_at, :expired_at].all? do |column|
-        master_version.send(column).to_s == version[column.to_s]
+      master_version = versions[index]
+      [:name, :price, :valid_from, :valid_to, :created_at, :expired_at, :current?].all? do |column|
+        equal = master_version.send(column).to_s == version[column.to_s]
+        puts "#{column}: #{master_version.send(column).to_s} != #{version[column.to_s]}" unless equal
+        equal
       end
     end
   end
   failure_message_for_should do |master|
-    if master.versions.size != @table.size
-      "Expected #{master.class} to have #{@table.size} versions but found #{master.versions.size}"
+    versions = master.versions_dataset.order(:id).all
+    if versions.size != @table.size
+      "Expected #{master.class} to have #{@table.size} versions but found #{versions.size}"
     else
-      "Expected #{master.class}.versions[#{@last_index}] to match #{@last_version.inspect} but found #{master.versions[@last_index].inspect}"
+      "Expected row #{@last_index+1} to match #{@last_version.inspect} but found #{versions[@last_index].inspect}"
     end
   end
 end

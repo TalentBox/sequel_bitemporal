@@ -66,47 +66,80 @@ describe "Sequel::Plugins::Bitemporal" do
     version.should have(1).errors
     version.errors[:master].should =~ ["is not valid"]
   end
-  it "expires current version on update" do
+  it "creates first version successfully" do
+    version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today
+    version.save
+    version.master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current? |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 |          | true     |
+    }
+  end
+  it "same day update doesn't override previous version" do
+    version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today
+    version.save
+    version.update price: 94
+    version.master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current? |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 |          | true     |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          | false    |
+    }
+  end
+  it "expires previous version but keep it in history" do
     version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today
     version.save
     Timecop.freeze Date.today+1
     version.update price: 94
     version.master.should have_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
-      | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94.00 | 2009-11-29 |            | 2009-11-29 |            | true    |
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current? |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true     |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            | false    |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 | false    |
     }
-    Timecop.freeze Date.today+1
-    version.update_attributes valid_to: "2009-12-05"
-    version.master.check_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
-      | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
-      | Single Standard | 94.00 | 2009-11-30 |            | 2009-11-29 | 2009-12-05 | true    |
-    }
-    Timecop.freeze Date.today+1
-    version.update_attributes valid_from: "2009-12-02", valid_to: nil, price: 95
-    version.master.check_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
-      | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
-      | Single Standard | 94.00 | 2009-11-30 | 2009-12-01 | 2009-11-29 | 2009-12-05 |         |
-      | Single Standard | 94.00 | 2009-12-01 |            | 2009-11-29 | 2009-12-02 | true    |
-      | Single Standard | 95.00 | 2009-12-01 |            | 2009-11-02 |            |         |
-    }
-    Timecop.freeze Date.today+1
-    version.master.check_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
-      | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
-      | Single Standard | 94.00 | 2009-11-30 | 2009-12-01 | 2009-11-29 | 2009-12-05 |         |
-      | Single Standard | 94.00 | 2009-12-01 |            | 2009-11-29 | 2009-12-02 |         |
-      | Single Standard | 95.00 | 2009-12-01 |            | 2009-11-02 |            | true    |
-    }
-    # missing scenarios: delete scheduled version, delete all versions
   end
+  it "doesn't expire no longer valid versions" do
+    version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today, valid_to: Date.today+1
+    version.save
+    Timecop.freeze Date.today+1
+    version.update price: 94
+    version.master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current? |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true     |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 | false    |
+    }
+  end
+    # Timecop.freeze Date.today+1
+    # version.update_attributes valid_to: "2009-12-05"
+    # version.master.check_versions %Q{
+# | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+# | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+# | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+# | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
+# | Single Standard | 94.00 | 2009-11-30 |            | 2009-11-29 | 2009-12-05 | true    |
+    # }
+    # Timecop.freeze Date.today+1
+    # version.update_attributes valid_from: "2009-12-02", valid_to: nil, price: 95
+    # version.master.check_versions %Q{
+# | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+# | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+# | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+# | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
+# | Single Standard | 94.00 | 2009-11-30 | 2009-12-01 | 2009-11-29 | 2009-12-05 |         |
+# | Single Standard | 94.00 | 2009-12-01 |            | 2009-11-29 | 2009-12-02 | true    |
+# | Single Standard | 95.00 | 2009-12-01 |            | 2009-11-02 |            |         |
+    # }
+    # Timecop.freeze Date.today+1
+    # version.master.check_versions %Q{
+# | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+# | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+# | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+# | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
+# | Single Standard | 94.00 | 2009-11-30 | 2009-12-01 | 2009-11-29 | 2009-12-05 |         |
+# | Single Standard | 94.00 | 2009-12-01 |            | 2009-11-29 | 2009-12-02 |         |
+# | Single Standard | 95.00 | 2009-12-01 |            | 2009-11-02 |            | true    |
+    # }
+    # missing scenarios:
+    # - same date update
+    # - save unchanged
+    # - delete scheduled version
+    # - delete all versions
 end

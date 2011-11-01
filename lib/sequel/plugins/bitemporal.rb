@@ -48,19 +48,53 @@ module Sequel
             errors.add(:master, "is not valid") unless master_id || master.valid?
           end
         end
+        
+        def current?
+          now = Time.now
+          created_at &&
+          created_at.to_time<=now &&
+          (expired_at.nil? || expired_at.to_time>now) &&
+          valid_from &&
+          valid_from.to_time<=now &&
+          (valid_to.nil? || valid_to.to_time>now)
+        end
 
-        def before_save
+     private
+
+        def before_create
           if model.bitemporal
-            self.created_at = Time.now
+            self.created_at ||= Time.now
+            unless master_id
+              return false unless @new_master.save
+              self.master = @new_master
+            end
+          end
+          super
+        end
+        
+        def before_update
+          if model.bitemporal
+            now = Time.now
+            self.created_at = now
+            self.valid_from = now if valid_from.to_time<now
+            previous = model.new
+            previous.send :set_values, @original_values.dup
+            previous.id = nil
+            if previous.valid_from<valid_from
+              fossil = model.new
+              fossil.send :set_values, previous.values.dup
+              fossil.created_at = now
+              fossil.valid_to = valid_from
+              return false unless fossil.save
+            end
+            previous.expired_at = now
+            return false unless previous.save
           end
           super
         end
 
-        def before_create
-          if model.bitemporal && !master_id
-            return false unless @new_master.save
-            self.master = @new_master
-          end
+        def set_values(hash)
+          @original_values = hash.dup
           super
         end
 
