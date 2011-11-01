@@ -8,7 +8,9 @@ module Sequel
         missing = required - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
         master.one_to_many :versions, class: version, key: :master_id
-        master.one_to_one :current_version, class: version, key: :master_id, conditions: ["created_at<=:now AND (expired_at IS NULL OR expired_at>:now) AND valid_from<=:now AND valid_to>:now", now: Time.now]
+        master.one_to_one :current_version, class: version, key: :master_id do |ds|
+          ds.where "created_at<=:now AND (expired_at IS NULL OR expired_at>:now) AND valid_from<=:now AND valid_to>:now", now: Time.now
+        end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
           def current?(now = Time.now)
@@ -48,7 +50,7 @@ module Sequel
         end
 
         def update_attributes(attributes={})
-          if attributes.delete(:partial_update) && current_version
+          if !new? && attributes.delete(:partial_update) && current_version
             current_attributes = current_version.values.dup
             current_attributes.delete :id
             attributes = current_attributes.merge attributes

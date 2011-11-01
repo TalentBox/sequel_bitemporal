@@ -132,7 +132,7 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true    |
     }
   end
-  it "allows shortening validity (COULD BE IMPROVED!)" do
+  it "allows shortening validity (SEE COMMENTS FOR IMPROVEMENTS)" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Date.today+1
@@ -143,41 +143,39 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-29 | 2009-12-09 | true    |
     }
+    # would be even better if it could be:
+    # | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+    # | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+    # | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-12-09 | true    |
   end
-    # Timecop.freeze Date.today+1
-    # version.update_attributes valid_to: "2009-12-05"
-    # version.master.check_versions %Q{
-# | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-# | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
-# | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-# | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
-# | Single Standard | 94.00 | 2009-11-30 |            | 2009-11-29 | 2009-12-05 | true    |
-    # }
-    # Timecop.freeze Date.today+1
-    # version.update_attributes valid_from: "2009-12-02", valid_to: nil, price: 95
-    # version.master.check_versions %Q{
-# | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-# | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
-# | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-# | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
-# | Single Standard | 94.00 | 2009-11-30 | 2009-12-01 | 2009-11-29 | 2009-12-05 |         |
-# | Single Standard | 94.00 | 2009-12-01 |            | 2009-11-29 | 2009-12-02 | true    |
-# | Single Standard | 95.00 | 2009-12-01 |            | 2009-11-02 |            |         |
-    # }
-    # Timecop.freeze Date.today+1
-    # version.master.check_versions %Q{
-# | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-# | Single Standard | 98.00 | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
-# | Single Standard | 98.00 | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-# | Single Standard | 94.00 | 2009-11-29 | 2009-11-30 | 2009-11-29 |            |         |
-# | Single Standard | 94.00 | 2009-11-30 | 2009-12-01 | 2009-11-29 | 2009-12-05 |         |
-# | Single Standard | 94.00 | 2009-12-01 |            | 2009-11-29 | 2009-12-02 |         |
-# | Single Standard | 95.00 | 2009-12-01 |            | 2009-11-02 |            | true    |
-    # }
-    # missing scenarios:
-    # - same date update
-    # - save unchanged
-    # - delete scheduled version
-    # - delete all versions
-    # - simultaneous updates
+  it "allows extending validity (SEE COMMENTS FOR IMPROVEMENTS)" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+2
+    Timecop.freeze Date.today+1
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-30 | true    |
+    }
+    master.update_attributes valid_to: nil, partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-29 |            | true    |
+    }
+    # would be even better if it could be:
+    # | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+    # | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+    # | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 |            | true    |
+  end
+  xit "doesn't do anything if unchanged" do
+  end
+  xit "allows deleting current version" do
+  end
+  xit "allows deleting a future version" do
+  end
+  xit "allows deleting all versions" do
+  end
+  xit "allows simultaneous updates" do
+  end
 end
