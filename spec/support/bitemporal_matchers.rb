@@ -8,9 +8,17 @@ RSpec::Matchers.define :have_versions do |versions_str|
       @last_index = index
       @last_version = version
       master_version = versions[index]
-      [:name, :price, :valid_from, :valid_to, :created_at, :expired_at, :current?].all? do |column|
-        equal = master_version.send(column).to_s == version[column.to_s]
-        puts "#{column}: #{master_version.send(column).to_s} != #{version[column.to_s]}" unless equal
+      [:name, :price, :valid_from, :valid_to, :created_at, :expired_at, :current].all? do |column|
+        expected = version[column.to_s]
+        case column
+        when :valid_to
+          expected = "9999-01-01"
+        when :current
+          expected = "false"
+        end if expected==""
+        found = master_version.send(column == :current ? "current?" : column).to_s
+        equal = found == expected
+        puts "#{column}: #{found} != #{expected}" unless equal
         equal
       end
     end

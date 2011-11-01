@@ -15,13 +15,18 @@ describe "Sequel::Plugins::Bitemporal" do
       Date        :valid_from
       Date        :valid_to
     end
-    @master_class = Class.new Sequel::Model do
-      set_dataset :rooms
-    end
-    closure = @master_class
     @version_class = Class.new Sequel::Model do
       set_dataset :room_versions
-      plugin :bitemporal, master: closure
+      def validate
+        super
+        errors.add(:name, "is required") unless name
+        errors.add(:price, "is required") unless price
+      end
+    end
+    closure = @version_class
+    @master_class = Class.new Sequel::Model do
+      set_dataset :rooms
+      plugin :bitemporal, version_class: closure
     end
   end
   before do
@@ -32,79 +37,111 @@ describe "Sequel::Plugins::Bitemporal" do
     @master_class.truncate
     @version_class.truncate
   end
-  it "checks master class is given" do
+  it "checks version class is given" do
     lambda{
-      @master_class.plugin :bitemporal
-    }.should raise_error ArgumentError, "please specify master class to use for bitemporality"
+      @version_class.plugin :bitemporal
+    }.should raise_error Sequel::Error, "please specify version class to use for bitemporal plugin"
   end
   it "checks required columns are present" do
     lambda{
-      @master_class.plugin :bitemporal, :master => @version_class
-    }.should raise_error "bitemporal plugin requires the following missing columns: master_id, valid_from, valid_to, created_at, expired_at"
+      @version_class.plugin :bitemporal, :version_class => @master_class
+    }.should raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
   end
-  it "validates presence of valid_from" do
-    version = @version_class.new
-    version.should_not be_valid
-    version.should have(1).errors
-    version.errors[:valid_from].should =~ ["is required"]
+  it "propagates errors from version to master" do
+    master = @master_class.new
+    master.should be_valid
+    master.attributes = {name: "Single Standard"}
+    master.should_not be_valid
+    master.errors.should == {price: ["is required"]}
   end
-  it "sets created_at on create" do
-    version = @version_class.new valid_from: Date.today
-    version.save.should be_true
-    version.created_at.should == Date.today
+  it "#update_attributes returns false instead of raising errors" do
+    master = @master_class.new
+    master.update_attributes(name: "Single Standard").should be_false
+    master.should be_new
+    master.errors.should == {price: ["is required"]}
+    master.update_attributes(price: 98).should be_true
   end
-  it "creates a master if none provided" do
-    version = @version_class.new valid_from: Date.today
-    version.save.should be_true
-    version.master.should be_kind_of(@master_class)
-    version.master.should_not be_new
-  end
-  it "fails validation if unsaved master is not valid" do
-    version = @version_class.new valid_from: Date.today
-    version.master.should_receive(:valid?).and_return false
-    version.should_not be_valid
-    version.should have(1).errors
-    version.errors[:master].should =~ ["is not valid"]
-  end
-  it "creates first version successfully" do
-    version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today
-    version.save
-    version.master.should have_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to | current? |
-      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 |          | true     |
+  it "allows creating a master and its first version in one step" do
+    master = @master_class.new
+    master.update_attributes(name: "Single Standard", price: 98).should be_true
+    master.should_not be_new
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 |          | true    |
     }
   end
-  it "same day update doesn't override previous version" do
-    version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today
-    version.save
-    version.update price: 94
-    version.master.should have_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to | current? |
-      | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 |          | true     |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          | false    |
+  it "prevents creating a new version in the past" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today-1
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 |          | true    |
+    }
+  end
+  it "allows creating a new version in the future" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today+1
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-29 |          |         |
+    }
+  end
+  it "doesn't loose previous version in same-day update" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 94
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 |          | true    |
+    }
+  end
+  it "allows partial updating based on current version" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes price: 94, partial_update: true
+    master.update_attributes name: "King Size", partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          |         |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          |         |
+      | King Size       | 94    | 2009-11-28 |            | 2009-11-28 |          | true    |
     }
   end
   it "expires previous version but keep it in history" do
-    version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today
-    version.save
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Date.today+1
-    version.update price: 94
-    version.master.should have_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to   | current? |
-      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true     |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            | false    |
-      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 | false    |
+    master.update_attributes price: 94, partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true    |
     }
   end
   it "doesn't expire no longer valid versions" do
-    version = @version_class.new name: "Single Standard", price: 98, valid_from: Date.today, valid_to: Date.today+1
-    version.save
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+1
     Timecop.freeze Date.today+1
-    version.update price: 94
-    version.master.should have_versions %Q{
-      | name            | price | created_at | expired_at | valid_from | valid_to   | current? |
-      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true     |
-      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 | false    |
+    master.update_attributes(price: 94, partial_update: true).should be_false
+    master.update_attributes name: "Single Standard", price: 94
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true    |
+    }
+  end
+  it "allows shortening validity (COULD BE IMPROVED!)" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Date.today+1
+    master.update_attributes valid_to: Date.today+10, partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-29 | 2009-12-09 | true    |
     }
   end
     # Timecop.freeze Date.today+1
@@ -142,4 +179,5 @@ describe "Sequel::Plugins::Bitemporal" do
     # - save unchanged
     # - delete scheduled version
     # - delete all versions
+    # - simultaneous updates
 end

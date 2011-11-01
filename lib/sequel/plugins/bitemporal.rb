@@ -1,103 +1,120 @@
 module Sequel
   module Plugins
     module Bitemporal
-      class ColumnMissingError < StandardError; end
-      def self.configure(model, opts = {})
-        master = opts[:master]
-        raise ArgumentError, "please specify master class to use for bitemporality" unless master
+      def self.configure(master, opts = {})
+        version = opts[:version_class]
+        raise Error, "please specify version class to use for bitemporal plugin" unless version
         required = [:master_id, :valid_from, :valid_to, :created_at, :expired_at]
-        missing = required - model.columns
-        raise ColumnMissingError, "bitemporal plugin requires the following missing column#{"s" if missing.size>1}: #{missing.join(", ")}" unless missing.empty?
-        model.many_to_one :master, class: master, :key => :master_id
-        master.one_to_many :versions, class: model, :key => :master_id
-        model.instance_eval do
-          @bitemporal = true
-          @master_class = master
+        missing = required - version.columns
+        raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
+        master.one_to_many :versions, class: version, key: :master_id
+        master.one_to_one :current_version, class: version, key: :master_id, conditions: ["created_at<=:now AND (expired_at IS NULL OR expired_at>:now) AND valid_from<=:now AND valid_to>:now", now: Time.now]
+        version.many_to_one :master, class: master, key: :master_id
+        version.class_eval do
+          def current?(now = Time.now)
+            !new? &&
+            created_at.to_time<=now &&
+            (expired_at.nil? || expired_at.to_time>now) &&
+            valid_from.to_time<=now &&
+            valid_to.to_time>now
+          end
+        end
+        master.instance_eval do
+          @version_class = version
         end
       end
       module ClassMethods
-        attr_reader :master_class
-        attr_reader :bitemporal
+        attr_reader :version_class
       end
       module DatasetMethods
       end
       module InstanceMethods
-
-        def master
-          if master_id
-            super
-          else
-            @new_master ||= model.master_class.new
-          end
-        end
-
-        def master=(value)
-          if value.new?
-            self.master_id = nil
-            @new_master = value
-          else
-            @new_master = nil
-            super
-          end
-        end
+        attr_reader :pending_version
 
         def validate
           super
-          if model.bitemporal
-            errors.add(:valid_from, "is required") unless valid_from
-            errors.add(:master, "is not valid") unless master_id || master.valid?
-          end
-        end
-        
-        def current?
-          now = Time.now
-          created_at &&
-          created_at.to_time<=now &&
-          (expired_at.nil? || expired_at.to_time>now) &&
-          valid_from &&
-          valid_from.to_time<=now &&
-          (valid_to.nil? || valid_to.to_time>now)
+          pending_version.errors.each do |key, key_errors|
+            key_errors.each{|error| errors.add key, error}
+          end if pending_version && !pending_version.valid?
         end
 
-     private
+        def attributes
+          pending_version ? pending_version.values : {}
+        end
 
-        def before_create
-          if model.bitemporal
-            self.created_at ||= Time.now
-            unless master_id
-              return false unless @new_master.save
-              self.master = @new_master
-            end
+        def attributes=(attributes)
+          @pending_version ||= model.version_class.new
+          pending_version.set attributes
+        end
+
+        def update_attributes(attributes={})
+          if attributes.delete(:partial_update) && current_version
+            current_attributes = current_version.values.dup
+            current_attributes.delete :id
+            attributes = current_attributes.merge attributes
           end
+          self.attributes = attributes
+          save raise_on_failure: false
+        end
+
+        def after_create
           super
+          if pending_version
+            prepare_pending_version
+            return false unless save_pending_version
+          end
         end
-        
+
         def before_update
-          if model.bitemporal
-            now = Time.now
-            self.created_at = now
-            self.valid_from = now if valid_from.to_time<now
-            previous = model.new
-            previous.send :set_values, @original_values.dup
-            previous.id = nil
-            if previous.valid_from<valid_from
-              fossil = model.new
-              fossil.send :set_values, previous.values.dup
-              fossil.created_at = now
-              fossil.valid_to = valid_from
-              return false unless fossil.save
-            end
-            previous.expired_at = now
-            return false unless previous.save
+          if pending_version
+            lock!
+            prepare_pending_version
+            expire_previous_versions
+            return false unless save_pending_version
           end
           super
         end
 
-        def set_values(hash)
-          @original_values = hash.dup
-          super
+      private
+
+        def prepare_pending_version
+          point_in_time = Time.now
+          pending_version.created_at = point_in_time
+          pending_version.valid_from = point_in_time if !pending_version.valid_from || pending_version.valid_from.to_time<point_in_time
         end
 
+        def save_pending_version
+          pending_version.valid_to ||= Time.utc 9999
+          success = add_version pending_version
+          @pending_version = nil if success
+          success
+        end
+
+        def expire_previous_versions
+          expired = versions_dataset.where expired_at: nil
+          expired = expired.exclude "valid_from=valid_to"
+          expired = expired.exclude "valid_to<=?", pending_version.valid_from
+          pending_version.valid_to ||= expired.where("valid_from>?", pending_version.valid_from).select("MIN(valid_from)").first
+          pending_version.valid_to ||= Time.utc 9999
+          expired = expired.exclude "valid_from>=?", pending_version.valid_to
+          expired = expired.all
+          expired.each do |expired_version|
+            if expired_version.valid_from<pending_version.valid_from && expired_version.valid_to>pending_version.valid_from
+              return false unless save_fossil expired_version, created_at: pending_version.created_at, valid_to: pending_version.valid_from
+            elsif expired_version.valid_from<pending_version.valid_to && expired_version.valid_to>pending_version.valid_to
+              return false unless save_fossil expired_version, created_at: pending_version.created_at, valid_from: pending_version.valid_to
+            end
+          end
+          versions_dataset.where(id: expired.collect(&:id)).update expired_at: pending_version.created_at
+        end
+
+        def save_fossil(expired, attributes={})
+          fossil = model.version_class.new
+          expired_attributes = expired.values.dup
+          expired_attributes.delete :id
+          fossil.send :set_values, expired_attributes.merge(attributes)
+          fossil.save validate: false
+        end
       end
     end
   end
