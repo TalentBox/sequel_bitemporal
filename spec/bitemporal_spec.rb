@@ -176,6 +176,34 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   xit "allows deleting all versions" do
   end
-  xit "allows simultaneous updates" do
+  it "allows simultaneous updates without information loss" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Date.today+1
+    master2 = @master_class.find id: master.id
+    master.update_attributes name: "Single Standard", price: 94
+    master2.update_attributes name: "Single Standard", price: 95
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 94    | 2009-11-29 | 2009-11-29 | 2009-11-29 |            |         |
+      | Single Standard | 95    | 2009-11-29 |            | 2009-11-29 |            | true    |
+    }
+  end
+  it "allows simultaneous cumulative updates" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Date.today+1
+    master2 = @master_class.find id: master.id
+    master.update_attributes price: 94, partial_update: true
+    master2.update_attributes name: "King Size", partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 94    | 2009-11-29 | 2009-11-29 | 2009-11-29 |            |         |
+      | King Size       | 94    | 2009-11-29 |            | 2009-11-29 |            | true    |
+    }
   end
 end
