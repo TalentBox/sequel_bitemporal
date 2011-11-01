@@ -6,7 +6,9 @@ Gem::Specification.new do |s|
   s.version     = "0.1.0"
   s.authors     = ["Joseph HALTER"]
   s.email       = ["joseph.halter@thetalentbox.com"]
-  s.description = "Bitemporal versioning for sequel."
+  s.homepage    = "https://github.com/TalentBox/sequel_bitemporal"
+  s.summary     = "Bitemporal versioning for sequel."
+  s.description = "Bitemporal versioning for sequel, fully tested."
 
   s.files         = `git ls-files`.split("\n")
   s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
