@@ -20,6 +20,9 @@ module Sequel
             valid_from.to_time<=now &&
             valid_to.to_time>now
           end
+          def destroy
+            master.destroy_version self
+          end
         end
         master.instance_eval do
           @version_class = version
@@ -77,6 +80,30 @@ module Sequel
           super
         end
 
+        def destroy
+          versions_dataset.where(expired_at: nil).where("valid_to>valid_from").update expired_at: Time.now
+        end
+
+        def destroy_version(version)
+          point_in_time = Time.now
+          return false if version.valid_to.to_time<=point_in_time
+          model.db.transaction do
+            success = true
+            previous = versions_dataset.where({
+              expired_at: nil,
+              valid_to: version.valid_from,
+            }).where("valid_to>valid_from").first
+            if previous
+              success &&= save_fossil previous, created_at: point_in_time, valid_to: version.valid_to
+              success &&= previous.update expired_at: point_in_time
+            end
+            success &&= save_fossil version, created_at: point_in_time, valid_to: point_in_time if point_in_time>=version.valid_from.to_time
+            success &&= version.update expired_at: point_in_time
+            raise Sequel::Rollback unless success
+            success
+          end
+        end
+
       private
 
         def prepare_pending_version
@@ -96,7 +123,7 @@ module Sequel
           expired = versions_dataset.where expired_at: nil
           expired = expired.exclude "valid_from=valid_to"
           expired = expired.exclude "valid_to<=?", pending_version.valid_from
-          pending_version.valid_to ||= expired.where("valid_from>?", pending_version.valid_from).select("MIN(valid_from)").first
+          pending_version.valid_to ||= expired.where("valid_from>?", pending_version.valid_from).min(:valid_from)
           pending_version.valid_to ||= Time.utc 9999
           expired = expired.exclude "valid_from>=?", pending_version.valid_to
           expired = expired.all

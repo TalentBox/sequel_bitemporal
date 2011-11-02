@@ -168,13 +168,97 @@ describe "Sequel::Plugins::Bitemporal" do
     # | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
     # | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 |            | true    |
   end
+  it "overrides no future versions" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+2
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2, valid_to: Date.today+4
+    master.update_attributes name: "Single Standard", price: 95, valid_from: Date.today+4, valid_to: Date.today+6
+    Timecop.freeze Date.today+1
+    master.update_attributes name: "King Size", valid_to: nil, partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 | 2009-12-02 |         |
+      | Single Standard | 95    | 2009-11-28 |            | 2009-12-02 | 2009-12-04 |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | King Size       | 98    | 2009-11-29 |            | 2009-11-29 | 2009-11-30 | true    |
+    }
+  end
+  it "overrides multiple future versions" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+2
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2, valid_to: Date.today+4
+    master.update_attributes name: "Single Standard", price: 95, valid_from: Date.today+4, valid_to: Date.today+6
+    Timecop.freeze Date.today+1
+    master.update_attributes name: "King Size", valid_to: Date.today+4, partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | 2009-12-02 |         |
+      | Single Standard | 95    | 2009-11-28 | 2009-11-29 | 2009-12-02 | 2009-12-04 |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 95    | 2009-11-29 |            | 2009-12-03 | 2009-12-04 |         |
+      | King Size       | 98    | 2009-11-29 |            | 2009-11-29 | 2009-12-03 | true    |
+    }
+  end
+  it "overrides all future versions" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+2
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2, valid_to: Date.today+4
+    master.update_attributes name: "Single Standard", price: 95, valid_from: Date.today+4, valid_to: Date.today+6
+    Timecop.freeze Date.today+1
+    master.update_attributes name: "King Size", valid_to: Time.utc(9999), partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | 2009-12-02 |         |
+      | Single Standard | 95    | 2009-11-28 | 2009-11-29 | 2009-12-02 | 2009-12-04 |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | King Size       | 98    | 2009-11-29 |            | 2009-11-29 |            | true    |
+    }
+  end
   xit "doesn't do anything if unchanged" do
   end
-  xit "allows deleting current version" do
+  it "allows deleting current version" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    Timecop.freeze Date.today+1
+    master.current_version.destroy.should be_true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 |            |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+    }
   end
-  xit "allows deleting a future version" do
+  it "allows deleting a future version" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    Timecop.freeze Date.today+1
+    master.versions.last.destroy.should be_true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 |            |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 |            | true    |
+    }
   end
-  xit "allows deleting all versions" do
+  it "allows deleting all versions" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    Timecop.freeze Date.today+1
+    master.destroy.should be_true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 |            |         |
+    }
   end
   it "allows simultaneous updates without information loss" do
     master = @master_class.new
