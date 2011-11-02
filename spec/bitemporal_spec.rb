@@ -70,12 +70,12 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 |          | true    |
     }
   end
-  it "prevents creating a new version in the past" do
+  it "allows creating a new version in the past" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today-1
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to | current |
-      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 |          | true    |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-27 |          | true    |
     }
   end
   it "allows creating a new version in the future" do

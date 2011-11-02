@@ -56,6 +56,7 @@ module Sequel
           if !new? && attributes.delete(:partial_update) && current_version
             current_attributes = current_version.values.dup
             current_attributes.delete :id
+            current_attributes.delete :valid_from
             attributes = current_attributes.merge attributes
           end
           self.attributes = attributes
@@ -109,7 +110,7 @@ module Sequel
         def prepare_pending_version
           point_in_time = Time.now
           pending_version.created_at = point_in_time
-          pending_version.valid_from = point_in_time if !pending_version.valid_from || pending_version.valid_from.to_time<point_in_time
+          pending_version.valid_from ||= point_in_time
         end
 
         def save_pending_version
