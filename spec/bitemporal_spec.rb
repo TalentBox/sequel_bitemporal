@@ -168,6 +168,8 @@ describe "Sequel::Plugins::Bitemporal" do
     # | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
     # | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 |            | true    |
   end
+  xit "doesn't do anything if unchanged" do
+  end
   it "overrides no future versions" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+2
@@ -216,8 +218,6 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
       | King Size       | 98    | 2009-11-29 |            | 2009-11-29 |            | true    |
     }
-  end
-  xit "doesn't do anything if unchanged" do
   end
   it "allows deleting current version" do
     master = @master_class.new
