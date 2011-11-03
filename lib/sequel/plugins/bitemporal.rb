@@ -8,8 +8,13 @@ module Sequel
         missing = required - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
         master.one_to_many :versions, class: version, key: :master_id
-        master.one_to_one :current_version, class: version, key: :master_id do |ds|
-          ds.where "created_at<=:now AND (expired_at IS NULL OR expired_at>:now) AND valid_from<=:now AND valid_to>:now", now: Time.now
+        master.one_to_one :current_version, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
+          t = Time.now
+          e = :expired_at.qualify(j)
+          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_from.qualify(j) <= t) & (:valid_to.qualify(j) > t)
+        end) do |ds|
+          t = Time.now
+          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_from <= t) & (valid_to > t)}
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
