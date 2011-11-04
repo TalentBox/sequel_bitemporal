@@ -47,9 +47,19 @@ module Sequel
             key_errors.each{|error| errors.add key, error}
           end if pending_version && !pending_version.valid?
         end
+        
+        def pending_or_current_version
+          pending_version || current_version
+        end
 
         def attributes
-          pending_version ? pending_version.values : {}
+          if pending_version
+            pending_version.values
+          elsif current_version
+            current_version.values
+          else
+            {}
+          end
         end
 
         def attributes=(attributes)

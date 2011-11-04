@@ -294,9 +294,23 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-    @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should_not be_nil
+    @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be
     Timecop.freeze Date.today+1
     master.destroy
     @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be_nil
+  end
+  it "gets pending or current version attributes" do
+    master = @master_class.new
+    master.attributes.should == {}
+    master.pending_version.should be_nil
+    master.pending_or_current_version.should be_nil
+    master.update_attributes name: "Single Standard", price: 98
+    master.attributes[:name].should == "Single Standard"
+    master.pending_version.should be_nil
+    master.pending_or_current_version.name.should == "Single Standard"
+    master.attributes = {name: "King Size"}
+    master.attributes[:name].should == "King Size"
+    master.pending_version.should be
+    master.pending_or_current_version.name.should == "King Size"
   end
 end
