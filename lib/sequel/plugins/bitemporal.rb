@@ -63,17 +63,17 @@ module Sequel
         end
 
         def attributes=(attributes)
+          if !new? && attributes.delete(:partial_update) && current_version
+            current_attributes = current_version.values.dup
+            current_attributes.delete :valid_from
+            attributes = current_attributes.merge attributes
+          end
+          attributes.delete :id
           @pending_version ||= model.version_class.new
           pending_version.set attributes
         end
 
         def update_attributes(attributes={})
-          if !new? && attributes.delete(:partial_update) && current_version
-            current_attributes = current_version.values.dup
-            current_attributes.delete :id
-            current_attributes.delete :valid_from
-            attributes = current_attributes.merge attributes
-          end
           self.attributes = attributes
           save raise_on_failure: false
         end
