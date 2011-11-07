@@ -9,15 +9,20 @@ RSpec::Matchers.define :have_versions do |versions_str|
       @last_version = version
       master_version = versions[index]
       [:name, :price, :valid_from, :valid_to, :created_at, :expired_at, :current].all? do |column|
-        expected = version[column.to_s]
-        case column
-        when :valid_to
-          expected = "9999-01-01"
-        when :current
-          expected = "false"
-        end if expected==""
-        found = master_version.send(column == :current ? "current?" : column).to_s
-        equal = found == expected
+        if column==:current
+          found = master_version.current?
+          expected = (version[column.to_s]=="true").to_s
+        else
+          found = master_version.send column
+          expected = version[column.to_s]
+          case expected
+          when "MAX DATE"
+            expected = "9999-01-01"
+          when "MAX TIME"
+            expected = "9999-01-01 01:00:00 +0100"
+          end
+        end
+        equal = found.to_s == expected
         puts "#{column}: #{found} != #{expected}" unless equal
         equal
       end

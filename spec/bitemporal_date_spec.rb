@@ -67,7 +67,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.should_not be_new
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to | current |
-      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 |          | true    |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
     }
   end
   it "allows creating a new version in the past" do
@@ -75,7 +75,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today-1
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to | current |
-      | Single Standard | 98    | 2009-11-28 |            | 2009-11-27 |          | true    |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-27 | MAX DATE | true    |
     }
   end
   it "allows creating a new version in the future" do
@@ -83,7 +83,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today+1
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to | current |
-      | Single Standard | 98    | 2009-11-28 |            | 2009-11-29 |          |         |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-29 | MAX DATE |         |
     }
   end
   it "doesn't loose previous version in same-day update" do
@@ -92,8 +92,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 94
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          |         |
-      | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 |          | true    |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
     }
   end
   it "allows partial updating based on current version" do
@@ -103,9 +103,9 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "King Size", partial_update: true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          |         |
-      | Single Standard | 94    | 2009-11-28 | 2009-11-28 | 2009-11-28 |          |         |
-      | King Size       | 94    | 2009-11-28 |            | 2009-11-28 |          | true    |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE |         |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE |         |
+      | King Size       | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
     }
   end
   it "expires previous version but keep it in history" do
@@ -115,9 +115,9 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes price: 94, partial_update: true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true    |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
   end
   it "doesn't expire no longer valid versions" do
@@ -129,7 +129,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
       | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 |            | true    |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
   end
   it "allows shortening validity (SEE COMMENTS FOR IMPROVEMENTS)" do
@@ -139,7 +139,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes valid_to: Date.today+10, partial_update: true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-29 | 2009-12-09 | true    |
     }
@@ -161,12 +161,12 @@ describe "Sequel::Plugins::Bitemporal" do
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 98    | 2009-11-29 |            | 2009-11-29 |            | true    |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
     # would be even better if it could be:
     # | name            | price | created_at | expired_at | valid_from | valid_to   | current |
     # | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
-    # | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 |            | true    |
+    # | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | MAX DATE   | true    |
   end
   xit "doesn't do anything if unchanged" do
   end
@@ -216,7 +216,7 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | 2009-12-02 |         |
       | Single Standard | 95    | 2009-11-28 | 2009-11-29 | 2009-12-02 | 2009-12-04 |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | King Size       | 98    | 2009-11-29 |            | 2009-11-29 |            | true    |
+      | King Size       | 98    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
   end
   it "allows deleting current version" do
@@ -227,9 +227,9 @@ describe "Sequel::Plugins::Bitemporal" do
     master.current_version.destroy.should be_true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
-      | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 |            |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
     }
   end
@@ -241,10 +241,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master.versions.last.destroy.should be_true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
-      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 |            |         |
-      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 |            | true    |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | MAX DATE   |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | MAX DATE   | true    |
     }
   end
   it "allows deleting all versions" do
@@ -255,9 +255,9 @@ describe "Sequel::Plugins::Bitemporal" do
     master.destroy.should be_true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
-      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 |            |         |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | MAX DATE   |         |
     }
   end
   it "allows simultaneous updates without information loss" do
@@ -269,10 +269,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master2.update_attributes name: "Single Standard", price: 95
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94    | 2009-11-29 | 2009-11-29 | 2009-11-29 |            |         |
-      | Single Standard | 95    | 2009-11-29 |            | 2009-11-29 |            | true    |
+      | Single Standard | 94    | 2009-11-29 | 2009-11-29 | 2009-11-29 | MAX DATE   |         |
+      | Single Standard | 95    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
   end
   it "allows simultaneous cumulative updates" do
@@ -284,10 +284,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master2.update_attributes name: "King Size", partial_update: true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
-      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 |            |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | Single Standard | 94    | 2009-11-29 | 2009-11-29 | 2009-11-29 |            |         |
-      | King Size       | 94    | 2009-11-29 |            | 2009-11-29 |            | true    |
+      | Single Standard | 94    | 2009-11-29 | 2009-11-29 | 2009-11-29 | MAX DATE   |         |
+      | King Size       | 94    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
   end
   it "allows eager loading with conditions on current version" do
