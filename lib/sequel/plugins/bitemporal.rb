@@ -1,6 +1,17 @@
 module Sequel
   module Plugins
     module Bitemporal
+      def self.as_we_knew_it(time)
+        raise ArgumentError, "requires a block" unless block_given?
+        previous_point_in_time, @point_in_time = @point_in_time, time
+        yield
+        @point_in_time = previous_point_in_time
+      end
+      
+      def self.point_in_time
+        @point_in_time || Time.now
+      end
+
       def self.configure(master, opts = {})
         version = opts[:version_class]
         raise Error, "please specify version class to use for bitemporal plugin" unless version
@@ -9,11 +20,11 @@ module Sequel
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
         master.one_to_many :versions, class: version, key: :master_id
         master.one_to_one :current_version, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
-          t = Time.now
+          t = ::Sequel::Plugins::Bitemporal.point_in_time
           e = :expired_at.qualify(j)
           (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_from.qualify(j) <= t) & (:valid_to.qualify(j) > t)
         end) do |ds|
-          t = Time.now
+          t = ::Sequel::Plugins::Bitemporal.point_in_time
           ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_from <= t) & (valid_to > t)}
         end
         version.many_to_one :master, class: master, key: :master_id

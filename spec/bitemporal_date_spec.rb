@@ -31,11 +31,11 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   before do
     Timecop.freeze 2009, 11, 28
+    @master_class.truncate
+    @version_class.truncate
   end
   after do
     Timecop.return
-    @master_class.truncate
-    @version_class.truncate
   end
   it "checks version class is given" do
     lambda{
@@ -312,5 +312,15 @@ describe "Sequel::Plugins::Bitemporal" do
     master.attributes[:name].should == "King Size"
     master.pending_version.should be
     master.pending_or_current_version.name.should == "King Size"
+  end
+  it "allows to go back in time" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Date.today+1
+    master.update_attributes price: 94, partial_update: true
+    master.current_version.price.should == 94
+    Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today-1) do
+      master.current_version(true).price.should == 98
+    end
   end
 end
