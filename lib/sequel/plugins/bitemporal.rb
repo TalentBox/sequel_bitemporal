@@ -52,6 +52,11 @@ module Sequel
       module InstanceMethods
         attr_reader :pending_version
 
+        def before_validation
+          prepare_pending_version
+          super
+        end
+
         def validate
           super
           pending_version.errors.each do |key, key_errors|
@@ -82,6 +87,7 @@ module Sequel
           attributes.delete :id
           @pending_version ||= model.version_class.new
           pending_version.set attributes
+          pending_version.master_id = id unless new?
         end
 
         def update_attributes(attributes={})
@@ -92,15 +98,12 @@ module Sequel
         def after_create
           super
           if pending_version
-            prepare_pending_version
             return false unless save_pending_version
           end
         end
 
         def before_update
           if pending_version
-            lock!
-            prepare_pending_version
             expire_previous_versions
             return false unless save_pending_version
           end
@@ -134,19 +137,14 @@ module Sequel
       private
 
         def prepare_pending_version
+          return unless pending_version
           point_in_time = Time.now
           pending_version.created_at = point_in_time
           pending_version.valid_from ||= point_in_time
         end
 
-        def save_pending_version
-          pending_version.valid_to ||= Time.utc 9999
-          success = add_version pending_version
-          @pending_version = nil if success
-          success
-        end
-
         def expire_previous_versions
+          lock!
           expired = versions_dataset.where expired_at: nil
           expired = expired.exclude "valid_from=valid_to"
           expired = expired.exclude "valid_to<=?", pending_version.valid_from
@@ -162,6 +160,13 @@ module Sequel
             end
           end
           versions_dataset.where(id: expired.collect(&:id)).update expired_at: pending_version.created_at
+        end
+
+        def save_pending_version
+          pending_version.valid_to ||= Time.utc 9999
+          success = add_version pending_version
+          @pending_version = nil if success
+          success
         end
 
         def save_fossil(expired, attributes={})
