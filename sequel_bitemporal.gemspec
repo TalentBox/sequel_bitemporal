@@ -3,9 +3,9 @@ $:.push File.expand_path("../lib", __FILE__)
 
 Gem::Specification.new do |s|
   s.name        = "sequel_bitemporal"
-  s.version     = "0.1.9"
-  s.authors     = ["Joseph HALTER"]
-  s.email       = ["joseph.halter@thetalentbox.com"]
+  s.version     = "0.1.10"
+  s.authors     = ["Joseph HALTER", "Jonathan TRON"]
+  s.email       = ["joseph.halter@thetalentbox.com", "jonathan.tron@thetalentbox.com"]
   s.homepage    = "https://github.com/TalentBox/sequel_bitemporal"
   s.summary     = "Bitemporal versioning for sequel."
   s.description = "Bitemporal versioning for sequel, fully tested."

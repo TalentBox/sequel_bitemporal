@@ -3,6 +3,8 @@ require "spec_helper"
 describe "Sequel::Plugins::Bitemporal" do
   let(:hour){ 3600 }
   before :all do
+    DB.drop_table(:rooms) if DB.table_exists?(:rooms)
+    DB.drop_table(:room_versions) if DB.table_exists?(:room_versions)
     DB.create_table! :rooms do
       primary_key :id
     end
@@ -32,11 +34,11 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   before do
     Timecop.freeze 2009, 11, 28, 10
+    @master_class.truncate
+    @version_class.truncate
   end
   after do
     Timecop.return
-    @master_class.truncate
-    @version_class.truncate
   end
   it "checks version class is given" do
     lambda{
@@ -300,6 +302,16 @@ describe "Sequel::Plugins::Bitemporal" do
     master.destroy
     @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be_nil
   end
+  it "allows loading masters with a current version" do
+    master_destroyed = @master_class.new
+    master_destroyed.update_attributes name: "Single Standard", price: 98
+    master_destroyed.destroy
+    master_with_current = @master_class.new
+    master_with_current.update_attributes name: "Single Standard", price: 94
+    master_with_future = @master_class.new
+    master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
+    @master_class.with_current_version.all.should have(1).item
+  end
   it "gets pending or current version attributes" do
     master = @master_class.new
     master.attributes.should == {}
@@ -313,5 +325,43 @@ describe "Sequel::Plugins::Bitemporal" do
     master.attributes[:name].should == "King Size"
     master.pending_version.should be
     master.pending_or_current_version.name.should == "King Size"
+  end
+  it "allows to go back in time" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Time.now+1*hour
+    master.update_attributes price: 94, partial_update: true
+    master.current_version.price.should == 94
+    Sequel::Plugins::Bitemporal.as_we_knew_it(Time.now-1*hour) do
+      master.current_version(true).price.should == 98
+    end
+  end
+  it "allows eager loading with conditions on current or future versions" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Time.now+1*hour
+    master.update_attributes name: "Single Standard", price: 99
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
+    res = @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate & {price: 99}).all.first
+    res.should be
+    res.current_or_future_versions.should have(1).item
+    res.current_or_future_versions.first.price.should == 99
+    res = @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate & {price: 94}).all.first
+    res.should be
+    res.current_or_future_versions.should have(1).item
+    res.current_or_future_versions.first.price.should == 94
+    Timecop.freeze Time.now+1*hour
+    master.destroy
+    @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate).all.should be_empty
+  end
+  it "allows loading masters with current or future versions" do
+    master_destroyed = @master_class.new
+    master_destroyed.update_attributes name: "Single Standard", price: 98
+    master_destroyed.destroy
+    master_with_current = @master_class.new
+    master_with_current.update_attributes name: "Single Standard", price: 94
+    master_with_future = @master_class.new
+    master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
+    @master_class.with_current_or_future_versions.all.should have(2).item
   end
 end

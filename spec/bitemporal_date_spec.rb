@@ -2,6 +2,8 @@ require "spec_helper"
 
 describe "Sequel::Plugins::Bitemporal" do
   before :all do
+    DB.drop_table(:rooms) if DB.table_exists?(:rooms)
+    DB.drop_table(:room_versions) if DB.table_exists?(:room_versions)
     DB.create_table! :rooms do
       primary_key :id
     end
