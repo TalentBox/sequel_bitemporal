@@ -34,8 +34,8 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   before do
     Timecop.freeze 2009, 11, 28, 10
-    @master_class.truncate
     @version_class.truncate
+    @master_class.truncate
   end
   after do
     Timecop.return
