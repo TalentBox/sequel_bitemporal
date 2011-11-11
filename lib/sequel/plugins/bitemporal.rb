@@ -27,6 +27,20 @@ module Sequel
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_from <= t) & (valid_to > t)}
         end
+        master.def_dataset_method :with_current_version do
+          eager_graph(:current_version).where({current_version__id: nil}.sql_negate)
+        end
+        master.one_to_many :current_or_future_versions, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
+          t = ::Sequel::Plugins::Bitemporal.point_in_time
+          e = :expired_at.qualify(j)
+          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_to.qualify(j) > t)
+        end) do |ds|
+          t = ::Sequel::Plugins::Bitemporal.point_in_time
+          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_to > t)}
+        end
+        master.def_dataset_method :with_current_or_future_versions do
+          eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate)
+        end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
           def current?(now = Time.now)

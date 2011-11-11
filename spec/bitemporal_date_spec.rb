@@ -299,6 +299,16 @@ describe "Sequel::Plugins::Bitemporal" do
     master.destroy
     @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be_nil
   end
+  it "allows loading masters with a current version" do
+    master_destroyed = @master_class.new
+    master_destroyed.update_attributes name: "Single Standard", price: 98
+    master_destroyed.destroy
+    master_with_current = @master_class.new
+    master_with_current.update_attributes name: "Single Standard", price: 94
+    master_with_future = @master_class.new
+    master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    @master_class.with_current_version.all.should have(1).item
+  end
   it "gets pending or current version attributes" do
     master = @master_class.new
     master.attributes.should == {}
@@ -322,5 +332,33 @@ describe "Sequel::Plugins::Bitemporal" do
     Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today-1) do
       master.current_version(true).price.should == 98
     end
+  end
+  it "allows eager loading with conditions on current or future versions" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Date.today+1
+    master.update_attributes name: "Single Standard", price: 99
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    res = @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate & {price: 99}).all.first
+    res.should be
+    res.current_or_future_versions.should have(1).item
+    res.current_or_future_versions.first.price.should == 99
+    res = @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate & {price: 94}).all.first
+    res.should be
+    res.current_or_future_versions.should have(1).item
+    res.current_or_future_versions.first.price.should == 94
+    Timecop.freeze Date.today+1
+    master.destroy
+    @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate).all.should be_empty
+  end
+  it "allows loading masters with current or future versions" do
+    master_destroyed = @master_class.new
+    master_destroyed.update_attributes name: "Single Standard", price: 98
+    master_destroyed.destroy
+    master_with_current = @master_class.new
+    master_with_current.update_attributes name: "Single Standard", price: 94
+    master_with_future = @master_class.new
+    master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    @master_class.with_current_or_future_versions.all.should have(2).item
   end
 end
