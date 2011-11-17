@@ -12,6 +12,17 @@ module Sequel
         @point_in_time || Time.now
       end
 
+      def self.at(time)
+        raise ArgumentError, "requires a block" unless block_given?
+        previous_now, @now = @now, time
+        yield
+        @now = previous_now
+      end
+
+      def self.now
+        @now || point_in_time
+      end
+
       def self.configure(master, opts = {})
         version = opts[:version_class]
         raise Error, "please specify version class to use for bitemporal plugin" unless version
@@ -21,22 +32,26 @@ module Sequel
         master.one_to_many :versions, class: version, key: :master_id
         master.one_to_one :current_version, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
+          n = ::Sequel::Plugins::Bitemporal.now
           e = :expired_at.qualify(j)
-          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_from.qualify(j) <= t) & (:valid_to.qualify(j) > t)
+          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_from.qualify(j) <= n) & (:valid_to.qualify(j) > n)
         end) do |ds|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
-          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_from <= t) & (valid_to > t)}
+          n = ::Sequel::Plugins::Bitemporal.now
+          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_from <= n) & (valid_to > n)}
         end
         master.def_dataset_method :with_current_version do
           eager_graph(:current_version).where({current_version__id: nil}.sql_negate)
         end
         master.one_to_many :current_or_future_versions, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
+          n = ::Sequel::Plugins::Bitemporal.now
           e = :expired_at.qualify(j)
-          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_to.qualify(j) > t)
+          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_to.qualify(j) > n)
         end) do |ds|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
-          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_to > t)}
+          n = ::Sequel::Plugins::Bitemporal.now
+          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_to > n)}
         end
         master.def_dataset_method :with_current_or_future_versions do
           eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate)
@@ -60,6 +75,12 @@ module Sequel
       end
       module ClassMethods
         attr_reader :version_class
+        def as_we_knew_it(time, &block)
+          ::Sequel::Plugins::Bitemporal.as_we_knew_it time, &block
+        end
+        def at(time, &block)
+          ::Sequel::Plugins::Bitemporal.now time, &block
+        end
       end
       module DatasetMethods
       end
