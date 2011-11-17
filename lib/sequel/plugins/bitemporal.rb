@@ -3,24 +3,26 @@ module Sequel
     module Bitemporal
       def self.as_we_knew_it(time)
         raise ArgumentError, "requires a block" unless block_given?
-        previous_point_in_time, @point_in_time = @point_in_time, time
+        key = :sequel_plugins_bitemporal_point_in_time
+        previous, Thread.current[key] = Thread.current[key], time.to_time
         yield
-        @point_in_time = previous_point_in_time
+        Thread.current[key] = previous
       end
       
       def self.point_in_time
-        @point_in_time || Time.now
+        Thread.current[:sequel_plugins_bitemporal_point_in_time] || Time.now
       end
 
       def self.at(time)
         raise ArgumentError, "requires a block" unless block_given?
-        previous_now, @now = @now, time
+        key = :sequel_plugins_bitemporal_now
+        previous, Thread.current[key] = Thread.current[key], time.to_time
         yield
-        @now = previous_now
+        Thread.current[key] = previous
       end
 
       def self.now
-        @now || point_in_time
+        Thread.current[:sequel_plugins_bitemporal_now] || Time.now
       end
 
       def self.configure(master, opts = {})
@@ -58,12 +60,14 @@ module Sequel
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
-          def current?(now = Time.now)
+          def current?
+            t = ::Sequel::Plugins::Bitemporal.point_in_time
+            n = ::Sequel::Plugins::Bitemporal.now
             !new? &&
-            created_at.to_time<=now &&
-            (expired_at.nil? || expired_at.to_time>now) &&
-            valid_from.to_time<=now &&
-            valid_to.to_time>now
+            created_at.to_time<=t &&
+            (expired_at.nil? || expired_at.to_time>t) &&
+            valid_from.to_time<=n &&
+            valid_to.to_time>n
           end
           def destroy
             master.destroy_version self
@@ -75,12 +79,6 @@ module Sequel
       end
       module ClassMethods
         attr_reader :version_class
-        def as_we_knew_it(time, &block)
-          ::Sequel::Plugins::Bitemporal.as_we_knew_it time, &block
-        end
-        def at(time, &block)
-          ::Sequel::Plugins::Bitemporal.now time, &block
-        end
       end
       module DatasetMethods
       end
@@ -117,6 +115,7 @@ module Sequel
           if !new? && attributes.delete(:partial_update) && current_version
             current_attributes = current_version.values.dup
             current_attributes.delete :valid_from
+            current_attributes.delete :valid_to
             attributes = current_attributes.merge attributes
           end
           attributes.delete :id

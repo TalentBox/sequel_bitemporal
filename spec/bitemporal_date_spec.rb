@@ -327,12 +327,44 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   it "allows to go back in time" do
     master = @master_class.new
-    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+1
+    master.update_attributes name: "Single Standard", price: 95, valid_from: Date.today+1, valid_to: Date.today+2
+    master.update_attributes name: "Single Standard", price: 93, valid_from: Date.today+2, valid_to: Date.today+3
+    master.update_attributes name: "Single Standard", price: 91, valid_from: Date.today+3
     Timecop.freeze Date.today+1
     master.update_attributes price: 94, partial_update: true
+    master.update_attributes price: 96, partial_update: true, valid_from: Date.today+2
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 95    | 2009-11-28 | 2009-11-29 | 2009-11-29 | 2009-11-30 |         |
+      | Single Standard | 93    | 2009-11-28 |            | 2009-11-30 | 2009-12-01 |         |
+      | Single Standard | 91    | 2009-11-28 | 2009-11-29 | 2009-12-01 | MAX DATE   |         |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 | 2009-11-30 | true    |
+      | Single Standard | 96    | 2009-11-29 |            | 2009-12-01 | MAX DATE   |         |
+    }
     master.current_version.price.should == 94
-    Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today-1) do
+    Sequel::Plugins::Bitemporal.at(Date.today-1) do
       master.current_version(true).price.should == 98
+    end
+    Sequel::Plugins::Bitemporal.at(Date.today+1) do
+      master.current_version(true).price.should == 93
+    end
+    Sequel::Plugins::Bitemporal.at(Date.today+2) do
+      master.current_version(true).price.should == 96
+    end
+    Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today-1) do
+      master.current_version(true).price.should == 95
+      master.current_version.should be_current
+      Sequel::Plugins::Bitemporal.at(Date.today-1) do
+        master.current_version(true).price.should == 98
+      end
+      Sequel::Plugins::Bitemporal.at(Date.today+1) do
+        master.current_version(true).price.should == 93
+      end
+      Sequel::Plugins::Bitemporal.at(Date.today+2) do
+        master.current_version(true).price.should == 91
+      end
     end
   end
   it "allows eager loading with conditions on current or future versions" do
