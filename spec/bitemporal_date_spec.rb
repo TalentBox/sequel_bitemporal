@@ -395,4 +395,21 @@ describe "Sequel::Plugins::Bitemporal" do
     master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
     @master_class.with_current_or_future_versions.all.should have(2).item
   end
+  it "delegates attributes from master to pending_or_current_version" do
+    master = @master_class.new
+    master.name.should be_nil
+    master.update_attributes name: "Single Standard", price: 98
+    master.name.should == "Single Standard"
+    master.attributes = {name: "King Size", partial_update: true}
+    master.name.should == "King Size"
+  end
+  it "avoids delegation with option delegate: false" do
+    closure = @version_class
+    without_delegation_class = Class.new Sequel::Model do
+      set_dataset :rooms
+      plugin :bitemporal, version_class: closure, delegate: false
+    end
+    master = without_delegation_class.new
+    expect{ master.name }.to raise_error NoMethodError
+  end
 end

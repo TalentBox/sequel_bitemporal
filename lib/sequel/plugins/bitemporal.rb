@@ -76,6 +76,15 @@ module Sequel
         master.instance_eval do
           @version_class = version
         end
+        unless opts[:delegate]==false
+          (version.columns-required-[:id]).each do |column|
+            master.class_eval <<-EOS
+              def #{column}
+                pending_or_current_version.#{column} if pending_or_current_version
+              end
+            EOS
+          end
+        end
       end
       module ClassMethods
         attr_reader :version_class
