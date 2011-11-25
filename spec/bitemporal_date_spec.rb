@@ -296,10 +296,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-    @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be
+    @master_class.eager_graph(:rooms_current_version).where("rooms_current_version.id IS NOT NULL").first.should be
     Timecop.freeze Date.today+1
     master.destroy
-    @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be_nil
+    @master_class.eager_graph(:rooms_current_version).where("rooms_current_version.id IS NOT NULL").first.should be_nil
   end
   it "allows loading masters with a current version" do
     master_destroyed = @master_class.new
@@ -411,5 +411,19 @@ describe "Sequel::Plugins::Bitemporal" do
     end
     master = without_delegation_class.new
     expect{ master.name }.to raise_error NoMethodError
+  end
+  it "get current_version association name from class name" do
+    class MyNameVersion < Sequel::Model
+      set_dataset :room_versions
+    end
+    class MyName < Sequel::Model
+      set_dataset :rooms
+      plugin :bitemporal, version_class: MyNameVersion
+    end
+    expect do
+      MyName.eager_graph :my_name_current_version
+    end.not_to raise_error
+    Object.send :remove_const, :MyName
+    Object.send :remove_const, :MyNameVersion
   end
 end
