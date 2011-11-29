@@ -421,7 +421,6 @@ describe "Sequel::Plugins::Bitemporal" do
       plugin :bitemporal, version_class: MyNameVersion
     end
     expect do
-      raise MyName.eager_graph(:current_version).sql.inspect
       MyName.eager_graph(:current_version).where("my_name_current_version.id IS NOT NULL").first
     end.not_to raise_error
     Object.send :remove_const, :MyName

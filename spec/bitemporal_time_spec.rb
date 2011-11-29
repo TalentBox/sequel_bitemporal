@@ -297,10 +297,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-    @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be
+    @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be
     Timecop.freeze Time.now+hour
     master.destroy
-    @master_class.eager_graph(:current_version).where("current_version.id IS NOT NULL").first.should be_nil
+    @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be_nil
   end
   it "allows loading masters with a current version" do
     master_destroyed = @master_class.new
