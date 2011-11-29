@@ -46,7 +46,7 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   it "checks required columns are present" do
     lambda{
-      @version_class.plugin :bitemporal, :version_class => @master_class
+      @version_class.plugin :bitemporal, version_class: @master_class
     }.should raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
   end
   it "propagates errors from version to master" do
@@ -296,10 +296,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-    @master_class.eager_graph(:rooms_current_version).where("rooms_current_version.id IS NOT NULL").first.should be
+    @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be
     Timecop.freeze Date.today+1
     master.destroy
-    @master_class.eager_graph(:rooms_current_version).where("rooms_current_version.id IS NOT NULL").first.should be_nil
+    @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be_nil
   end
   it "allows loading masters with a current version" do
     master_destroyed = @master_class.new
@@ -421,7 +421,8 @@ describe "Sequel::Plugins::Bitemporal" do
       plugin :bitemporal, version_class: MyNameVersion
     end
     expect do
-      MyName.eager_graph :my_name_current_version
+      raise MyName.eager_graph(:current_version).sql.inspect
+      MyName.eager_graph(:current_version).where("my_name_current_version.id IS NOT NULL").first
     end.not_to raise_error
     Object.send :remove_const, :MyName
     Object.send :remove_const, :MyNameVersion
