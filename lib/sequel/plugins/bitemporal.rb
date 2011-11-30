@@ -123,7 +123,10 @@ module Sequel
 
         def attributes=(attributes)
           if !new? && attributes.delete(:partial_update) && current_version
-            current_attributes = current_version.values.dup
+            current_attributes = current_version.keys.inject({}) do |hash, key|
+              hash[key] = current_version.send key
+              hash
+            end
             current_attributes.delete :valid_from
             current_attributes.delete :valid_to
             attributes = current_attributes.merge attributes
