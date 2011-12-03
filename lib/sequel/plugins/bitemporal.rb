@@ -33,10 +33,12 @@ module Sequel
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
         master.instance_eval do
           @version_class = version
-          @current_version_alias_name = "#{name ? underscore(demodulize(name)) : table_name}_current_version".to_sym
+          base_alias = name ? underscore(demodulize(name)) : table_name
+          @versions_alias = "#{base_alias}_versions".to_sym
+          @current_version_alias = "#{base_alias}_current_version".to_sym
         end
-        master.one_to_many :versions, class: version, key: :master_id
-        master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias_name, :graph_block=>(proc do |j, lj, js|
+        master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
+        master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           n = ::Sequel::Plugins::Bitemporal.now
           e = :expired_at.qualify(j)
@@ -47,7 +49,7 @@ module Sequel
           ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_from <= n) & (valid_to > n)}
         end
         master.def_dataset_method :with_current_version do
-          eager_graph(:current_version).where({:id.qualify(model.current_version_alias_name) => nil}.sql_negate)
+          eager_graph(:current_version).where({:id.qualify(model.current_version_alias) => nil}.sql_negate)
         end
         master.one_to_many :current_or_future_versions, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
@@ -88,7 +90,7 @@ module Sequel
         end
       end
       module ClassMethods
-        attr_reader :version_class, :current_version_alias_name
+        attr_reader :version_class, :versions_alias, :current_version_alias
       end
       module DatasetMethods
       end
