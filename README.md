@@ -7,16 +7,34 @@ Dependencies
 ------------
 
 * Ruby >= 1.9.2
-* gem "sequel"
+* gem "sequel", "~> 3.30.0"
 
 Usage
 -----
 
 * Declare bitemporality inside your model:
 
-        class HotelPrice < Sequel::Model
-          plugin :bitemporal
+        class HotelPriceVersion < Sequel::Model
         end
+
+        class HotelPrice < Sequel::Model
+          plugin :bitemporal, version_class: HotelPriceVersion
+        end
+
+* You can now create a hotel price with bitemporal versions:
+
+        price = HotelPrice.new
+        price.update_attributes price: 18
+
+* To show all versions:
+
+        price.versions
+
+* To get current version:
+
+        price.current_version
+
+* Look at the specs for more usage patterns.
 
 Build Status
 ------------
