@@ -65,7 +65,9 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   it "allows creating a master and its first version in one step" do
     master = @master_class.new
-    master.update_attributes(name: "Single Standard", price: 98).should be_true
+    result = master.update_attributes name: "Single Standard", price: 98
+    result.should be_true
+    result.should == master
     master.should_not be_new
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to | current |

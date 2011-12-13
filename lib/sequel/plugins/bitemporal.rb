@@ -141,7 +141,7 @@ module Sequel
 
         def update_attributes(attributes={})
           self.attributes = attributes
-          save raise_on_failure: false
+          save(raise_on_failure: false) && self
         end
 
         def after_create
