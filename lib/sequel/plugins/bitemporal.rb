@@ -124,7 +124,7 @@ module Sequel
         end
 
         def attributes=(attributes)
-          if !new? && attributes.delete(:partial_update) && current_version && !@pending_version
+          if attributes.delete(:partial_update) && !@pending_version && !new? && current_version
             current_attributes = current_version.keys.inject({}) do |hash, key|
               hash[key] = current_version.send key
               hash
