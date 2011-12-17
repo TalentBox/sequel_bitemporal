@@ -1,40 +1,12 @@
 require "spec_helper"
 
 describe "Sequel::Plugins::Bitemporal" do
+  include DbHelpers
   before :all do
-    DB.drop_table(:room_versions) if DB.table_exists?(:room_versions)
-    DB.drop_table(:rooms) if DB.table_exists?(:rooms)
-    DB.create_table! :rooms do
-      primary_key :id
-    end
-    DB.create_table! :room_versions do
-      primary_key :id
-      foreign_key :master_id, :rooms
-      String      :name
-      Fixnum      :price
-      Date        :created_at
-      Date        :expired_at
-      Date        :valid_from
-      Date        :valid_to
-    end
-    @version_class = Class.new Sequel::Model do
-      set_dataset :room_versions
-      def validate
-        super
-        errors.add(:name, "is required") unless name
-        errors.add(:price, "is required") unless price
-      end
-    end
-    closure = @version_class
-    @master_class = Class.new Sequel::Model do
-      set_dataset :rooms
-      plugin :bitemporal, version_class: closure
-    end
+    db_setup
   end
   before do
     Timecop.freeze 2009, 11, 28
-    @version_class.truncate
-    @master_class.truncate
   end
   after do
     Timecop.return
@@ -429,3 +401,105 @@ describe "Sequel::Plugins::Bitemporal" do
     Object.send :remove_const, :MyNameVersion
   end
 end
+
+describe "Sequel::Plugins::Bitemporal", "with audit" do
+  include DbHelpers
+  before :all do
+    @audit_class = Class.new
+    db_setup audit_class: @audit_class
+  end
+  before do
+    Timecop.freeze 2009, 11, 28
+  end
+  after do
+    Timecop.return
+  end
+  it "generates a new audit on creation" do
+    master = @master_class.new
+    master.should_receive(:updated_by_id).and_return(updated_by_id = stub)
+    @audit_class.should_receive(:audit).with(
+      {},
+      hash_including({name: "Single Standard", price: 98}),
+      Date.today,
+      updated_by_id
+    )
+    master.update_attributes name: "Single Standard", price: 98
+  end
+  it "generates a new audit on full update" do
+    master = @master_class.new
+    master.should_receive(:updated_by_id).twice.and_return(updated_by_id = stub)
+    @audit_class.stub(:audit)
+    master.update_attributes name: "Single Standard", price: 98
+    @audit_class.should_receive(:audit).with(
+      hash_including({name: "Single Standard", price: 98}),
+      hash_including({name: "King size", price: 98}),
+      Date.today,
+      updated_by_id
+    )
+    master.update_attributes name: "King size", price: 98 
+  end
+  it "generates a new audit on partial update" do
+    master = @master_class.new
+    master.should_receive(:updated_by_id).twice.and_return(updated_by_id = stub)
+    @audit_class.stub(:audit)
+    master.update_attributes name: "Single Standard", price: 98
+    @audit_class.should_receive(:audit).with(
+      hash_including({name: "Single Standard", price: 98}),
+      hash_including({name: "King size", price: 98}),
+      Date.today,
+      updated_by_id
+    )
+    master.update_attributes partial_update: true, name: "King size", price: 98 
+  end
+end
+describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the updated id" do
+  include DbHelpers
+  before :all do
+    @audit_class = Class.new
+    db_setup audit_class: @audit_class, audit_updated_by_method: :author_id
+  end
+  before do
+    Timecop.freeze 2009, 11, 28
+  end
+  after do
+    Timecop.return
+  end
+  it "generates a new audit on creation" do
+    master = @master_class.new
+    master.should_receive(:author_id).and_return(updated_by_id = stub)
+    @audit_class.should_receive(:audit).with(
+      {},
+      hash_including({name: "Single Standard", price: 98}),
+      Date.today,
+      updated_by_id
+    )
+    master.update_attributes name: "Single Standard", price: 98
+  end
+  it "generates a new audit on full update" do
+    master = @master_class.new
+    master.should_receive(:author_id).twice.and_return(updated_by_id = stub)
+    @audit_class.stub(:audit)
+    master.update_attributes name: "Single Standard", price: 98
+    @audit_class.should_receive(:audit).with(
+      hash_including({name: "Single Standard", price: 98}),
+      hash_including({name: "King size", price: 98}),
+      Date.today,
+      updated_by_id
+    )
+    master.update_attributes name: "King size", price: 98 
+  end
+  it "generates a new audit on partial update" do
+    master = @master_class.new
+    master.should_receive(:author_id).twice.and_return(updated_by_id = stub)
+    @audit_class.stub(:audit)
+    master.update_attributes name: "Single Standard", price: 98
+    @audit_class.should_receive(:audit).with(
+      hash_including({name: "Single Standard", price: 98}),
+      hash_including({name: "King size", price: 98}),
+      Date.today,
+      updated_by_id
+    )
+    master.update_attributes partial_update: true, name: "King size", price: 98 
+  end
+end
+

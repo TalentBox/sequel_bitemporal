@@ -8,7 +8,7 @@ module Sequel
         yield
         Thread.current[key] = previous
       end
-      
+
       def self.point_in_time
         Thread.current[:sequel_plugins_bitemporal_point_in_time] || Time.now
       end
@@ -36,6 +36,8 @@ module Sequel
           base_alias = name ? underscore(demodulize(name)) : table_name
           @versions_alias = "#{base_alias}_versions".to_sym
           @current_version_alias = "#{base_alias}_current_version".to_sym
+          @audit_class = opts[:audit_class]
+          @audit_updated_by_method = opts[:audit_updated_by_method] || :updated_by_id
         end
         master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
         master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
@@ -91,11 +93,16 @@ module Sequel
       end
       module ClassMethods
         attr_reader :version_class, :versions_alias, :current_version_alias
+        attr_reader :audit_class, :audit_updated_by_method
       end
       module DatasetMethods
       end
       module InstanceMethods
         attr_reader :pending_version
+
+        def audited?
+          !!self.class.audit_class
+        end
 
         def before_validation
           prepare_pending_version
@@ -125,6 +132,7 @@ module Sequel
 
         def attributes=(attributes)
           if attributes.delete(:partial_update) && !@pending_version && !new? && current_version
+            @current_version_values = current_version.values
             current_attributes = current_version.keys.inject({}) do |hash, key|
               hash[key] = current_version.send key
               hash
@@ -132,6 +140,8 @@ module Sequel
             current_attributes.delete :valid_from
             current_attributes.delete :valid_to
             attributes = current_attributes.merge attributes
+          elsif current_version
+            @current_version_values = current_version.values
           end
           attributes.delete :id
           @pending_version ||= model.version_class.new
@@ -212,9 +222,19 @@ module Sequel
         end
 
         def save_pending_version
+          current_values_for_audit = @current_version_values || {}
           pending_version.valid_to ||= Time.utc 9999
           success = add_version pending_version
-          @pending_version = nil if success
+          if success
+            self.class.audit_class.audit(
+              current_values_for_audit,
+              pending_version.values,
+              pending_version.valid_from, 
+              send(self.class.audit_updated_by_method)
+            ) if audited?
+            @current_version_values = nil
+            @pending_version = nil
+          end
           success
         end
 
@@ -229,3 +249,4 @@ module Sequel
     end
   end
 end
+
