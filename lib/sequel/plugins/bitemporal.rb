@@ -227,6 +227,7 @@ module Sequel
           success = add_version pending_version
           if success
             self.class.audit_class.audit(
+              self,
               current_values_for_audit,
               pending_version.values,
               pending_version.valid_from, 

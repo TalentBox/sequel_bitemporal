@@ -354,6 +354,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
     master = @master_class.new
     master.should_receive(:updated_by_id).and_return(updated_by_id = stub)
     @audit_class.should_receive(:audit).with(
+      master,
       {},
       hash_including({name: "Single Standard", price: 98}),
       Time.now,
@@ -367,6 +368,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
     @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
+      master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Time.now,
@@ -380,6 +382,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
     @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
+      master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Time.now,
@@ -405,6 +408,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the u
     master = @master_class.new
     master.should_receive(:author_id).and_return(updated_by_id = stub)
     @audit_class.should_receive(:audit).with(
+      master,
       {},
       hash_including({name: "Single Standard", price: 98}),
       Time.now,
@@ -418,6 +422,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the u
     @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
+      master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Time.now,
@@ -431,6 +436,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the u
     @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
+      master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Time.now,
