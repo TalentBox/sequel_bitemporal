@@ -77,8 +77,11 @@ module Sequel
             valid_from.to_time<=n &&
             valid_to.to_time>n
           end
-          def destroy
-            master.destroy_version self
+          def destroy(opts={})
+            expand_previous_version = opts.fetch(:expand_previous_version){
+              valid_from.to_time>::Sequel::Plugins::Bitemporal.now
+            }
+            master.destroy_version self, expand_previous_version
           end
         end
         unless opts[:delegate]==false
@@ -173,20 +176,27 @@ module Sequel
           versions_dataset.where(expired_at: nil).where("valid_to>valid_from").update expired_at: Time.now
         end
 
-        def destroy_version(version)
+        def destroy_version(version, expand_previous_version)
           point_in_time = Time.now
           return false if version.valid_to.to_time<=point_in_time
           model.db.transaction do
             success = true
-            previous = versions_dataset.where({
-              expired_at: nil,
-              valid_to: version.valid_from,
-            }).where("valid_to>valid_from").first
-            if previous
-              success &&= save_fossil previous, created_at: point_in_time, valid_to: version.valid_to
-              success &&= previous.update expired_at: point_in_time
+            version_was_valid = point_in_time>=version.valid_from.to_time
+            if expand_previous_version
+              previous = versions_dataset.where({
+                expired_at: nil,
+                valid_to: version.valid_from,
+              }).where("valid_to>valid_from").first
+              if previous
+                if version_was_valid
+                  success &&= save_fossil previous, created_at: point_in_time, valid_from: point_in_time, valid_to: version.valid_to
+                else
+                  success &&= save_fossil previous, created_at: point_in_time, valid_to: version.valid_to
+                  success &&= previous.update expired_at: point_in_time
+                end
+              end
             end
-            success &&= save_fossil version, created_at: point_in_time, valid_to: point_in_time if point_in_time>=version.valid_from.to_time
+            success &&= save_fossil version, created_at: point_in_time, valid_to: point_in_time if version_was_valid
             success &&= version.update expired_at: point_in_time
             raise Sequel::Rollback unless success
             success

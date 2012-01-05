@@ -197,15 +197,34 @@ describe "Sequel::Plugins::Bitemporal" do
   end
   it "allows deleting current version" do
     master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 92, valid_from: Date.today-2, valid_to: Date.today
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
     Timecop.freeze Date.today+1
     master.current_version.destroy.should be_true
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 92    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
       | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
       | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 | MAX DATE   |         |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+    }
+  end
+  it "allows deleting current version to restore the previous one" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 92, valid_from: Date.today-2, valid_to: Date.today
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    Timecop.freeze Date.today+1
+    master.current_version.destroy(expand_previous_version: true).should be_true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 92    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 | MAX DATE   |         |
+      | Single Standard | 92    | 2009-11-29 |            | 2009-11-29 | 2009-11-30 | true    |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
     }
   end
@@ -221,6 +240,19 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
       | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | MAX DATE   | true    |
+    }
+  end
+  it "allows deleting a future version without expanding the current one" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    Timecop.freeze Date.today+1
+    master.versions.last.destroy(expand_previous_version: false).should be_true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-30 | true    |
+      | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | MAX DATE   |         |
     }
   end
   it "allows deleting all versions" do
