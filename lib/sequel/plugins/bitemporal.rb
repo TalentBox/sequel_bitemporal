@@ -5,8 +5,9 @@ module Sequel
         raise ArgumentError, "requires a block" unless block_given?
         key = :sequel_plugins_bitemporal_point_in_time
         previous, Thread.current[key] = Thread.current[key], time.to_time
-        yield
+        result = yield
         Thread.current[key] = previous
+        result
       end
 
       def self.point_in_time
@@ -17,8 +18,9 @@ module Sequel
         raise ArgumentError, "requires a block" unless block_given?
         key = :sequel_plugins_bitemporal_now
         previous, Thread.current[key] = Thread.current[key], time.to_time
-        yield
+        result = yield
         Thread.current[key] = previous
+        result
       end
 
       def self.now
