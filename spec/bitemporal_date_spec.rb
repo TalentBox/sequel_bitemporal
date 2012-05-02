@@ -298,6 +298,20 @@ describe "Sequel::Plugins::Bitemporal" do
       | King Size       | 94    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
   end
+  it "can expire invalid versions" do
+    master = @master_class.new.update_attributes name: "Single Standard", price: 98
+    master.current_version.price = nil
+    master.current_version.should_not be_valid
+    master.current_version.save validate: false
+    Timecop.freeze Date.today+1
+    master.update_attributes price: 94, partial_update: true
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard |       | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
+      | Single Standard |       | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
+    }
+  end
   it "allows eager loading with conditions on current version" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
