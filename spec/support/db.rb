@@ -12,6 +12,7 @@ module DbHelpers
     DB.drop_table(:rooms) if DB.table_exists?(:rooms)
     DB.create_table! :rooms do
       primary_key :id
+      Boolean     :disabled, null: false, default: false
     end
     DB.create_table! :room_versions do
       primary_key :id

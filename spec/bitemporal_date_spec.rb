@@ -446,6 +446,12 @@ describe "Sequel::Plugins::Bitemporal" do
     Object.send :remove_const, :MyName
     Object.send :remove_const, :MyNameVersion
   end
+  it "can update master and current version at the same time" do
+    master = @master_class.new.update_attributes name: "Single Standard", price: 98
+    master.disabled = true
+    master.update_attributes price: 94, partial_update: true
+    master.reload.disabled.should be_true
+  end
 end
 
 describe "Sequel::Plugins::Bitemporal", "with audit" do

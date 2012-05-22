@@ -215,7 +215,9 @@ module Sequel
         end
 
         def expire_previous_versions
+          master_changes = values.select{|k| changed_columns.include? k}
           lock!
+          set master_changes
           expired = versions_dataset.where expired_at: nil
           expired = expired.exclude "valid_from=valid_to"
           expired = expired.exclude "valid_to<=?", pending_version.valid_from
