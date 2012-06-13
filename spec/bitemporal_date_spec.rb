@@ -387,6 +387,21 @@ describe "Sequel::Plugins::Bitemporal" do
       end
     end
   end
+  it "correctly reset time if failure when going back in time" do
+    before = Sequel::Plugins::Bitemporal.now
+    lambda do
+      Sequel::Plugins::Bitemporal.at(Date.today+2) do
+        raise StandardError, "error during back in time"
+      end
+    end.should raise_error StandardError
+    Sequel::Plugins::Bitemporal.now.should == before
+    lambda do
+      Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+2) do
+        raise StandardError, "error during back in time"
+      end
+    end.should raise_error StandardError
+    Sequel::Plugins::Bitemporal.now.should == before
+  end
   it "allows eager loading with conditions on current or future versions" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98

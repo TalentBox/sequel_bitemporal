@@ -1,30 +1,32 @@
 module Sequel
   module Plugins
     module Bitemporal
+      THREAD_POINT_IN_TIME_KEY = :sequel_plugins_bitemporal_point_in_time
       def self.as_we_knew_it(time)
+        previous = Thread.current[THREAD_POINT_IN_TIME_KEY]
         raise ArgumentError, "requires a block" unless block_given?
-        key = :sequel_plugins_bitemporal_point_in_time
-        previous, Thread.current[key] = Thread.current[key], time.to_time
-        result = yield
-        Thread.current[key] = previous
-        result
+        Thread.current[THREAD_POINT_IN_TIME_KEY] = time.to_time
+        yield
+      ensure
+        Thread.current[THREAD_POINT_IN_TIME_KEY] = previous
       end
 
       def self.point_in_time
-        Thread.current[:sequel_plugins_bitemporal_point_in_time] || Time.now
+        Thread.current[THREAD_POINT_IN_TIME_KEY] || Time.now
       end
 
-      def self.at(time)
+      THREAD_NOW_KEY = :sequel_plugins_bitemporal_now
+      def self.at(time)                                            
+        previous = Thread.current[THREAD_NOW_KEY]
         raise ArgumentError, "requires a block" unless block_given?
-        key = :sequel_plugins_bitemporal_now
-        previous, Thread.current[key] = Thread.current[key], time.to_time
-        result = yield
-        Thread.current[key] = previous
-        result
+        Thread.current[THREAD_NOW_KEY] = time.to_time
+        yield
+      ensure
+        Thread.current[THREAD_NOW_KEY] = previous
       end
 
       def self.now
-        Thread.current[:sequel_plugins_bitemporal_now] || Time.now
+        Thread.current[THREAD_NOW_KEY] || Time.now
       end
 
       def self.configure(master, opts = {})
