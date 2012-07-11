@@ -1,3 +1,5 @@
+require "date"
+
 module Sequel
   module Plugins
     module Bitemporal
@@ -5,28 +7,28 @@ module Sequel
       def self.as_we_knew_it(time)
         previous = Thread.current[THREAD_POINT_IN_TIME_KEY]
         raise ArgumentError, "requires a block" unless block_given?
-        Thread.current[THREAD_POINT_IN_TIME_KEY] = time.to_time
+        Thread.current[THREAD_POINT_IN_TIME_KEY] = time.to_datetime
         yield
       ensure
         Thread.current[THREAD_POINT_IN_TIME_KEY] = previous
       end
 
       def self.point_in_time
-        Thread.current[THREAD_POINT_IN_TIME_KEY] || Time.now
+        Thread.current[THREAD_POINT_IN_TIME_KEY] || DateTime.now
       end
 
       THREAD_NOW_KEY = :sequel_plugins_bitemporal_now
       def self.at(time)                                            
         previous = Thread.current[THREAD_NOW_KEY]
         raise ArgumentError, "requires a block" unless block_given?
-        Thread.current[THREAD_NOW_KEY] = time.to_time
+        Thread.current[THREAD_NOW_KEY] = time.to_datetime
         yield
       ensure
         Thread.current[THREAD_NOW_KEY] = previous
       end
 
       def self.now
-        Thread.current[THREAD_NOW_KEY] || Time.now
+        Thread.current[THREAD_NOW_KEY] || DateTime.now
       end
 
       def self.configure(master, opts = {})
@@ -76,14 +78,14 @@ module Sequel
             t = ::Sequel::Plugins::Bitemporal.point_in_time
             n = ::Sequel::Plugins::Bitemporal.now
             !new? &&
-            created_at.to_time<=t &&
-            (expired_at.nil? || expired_at.to_time>t) &&
-            valid_from.to_time<=n &&
-            valid_to.to_time>n
+            created_at.to_datetime<=t &&
+            (expired_at.nil? || expired_at.to_datetime>t) &&
+            valid_from.to_datetime<=n &&
+            valid_to.to_datetime>n
           end
           def destroy(opts={})
             expand_previous_version = opts.fetch(:expand_previous_version){
-              valid_from.to_time>::Sequel::Plugins::Bitemporal.now
+              valid_from.to_datetime>::Sequel::Plugins::Bitemporal.now
             }
             master.destroy_version self, expand_previous_version
           end
@@ -184,10 +186,10 @@ module Sequel
         def destroy_version(version, expand_previous_version)
           now = ::Sequel::Plugins::Bitemporal.now
           point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
-          return false if version.valid_to.to_time<=now
+          return false if version.valid_to.to_datetime<=now
           model.db.transaction do
             success = true
-            version_was_valid = now>=version.valid_from.to_time
+            version_was_valid = now>=version.valid_from.to_datetime
             if expand_previous_version
               previous = versions_dataset.where({
                 expired_at: nil,
