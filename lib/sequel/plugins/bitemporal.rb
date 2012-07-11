@@ -26,7 +26,7 @@ module Sequel
       end
 
       def self.now
-        Thread.current[THREAD_NOW_KEY] || Time.now
+        Thread.current[THREAD_NOW_KEY] || point_in_time
       end
 
       def self.configure(master, opts = {})
@@ -177,11 +177,12 @@ module Sequel
         end
 
         def destroy
-          versions_dataset.where(expired_at: nil).where("valid_to>valid_from").update expired_at: Time.now
+          point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
+          versions_dataset.where(expired_at: nil).where("valid_to>valid_from").update expired_at: point_in_time
         end
 
         def destroy_version(version, expand_previous_version)
-          point_in_time = Time.now
+          point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
           return false if version.valid_to.to_time<=point_in_time
           model.db.transaction do
             success = true
@@ -211,9 +212,10 @@ module Sequel
 
         def prepare_pending_version
           return unless pending_version
-          point_in_time = Time.now
+          now = ::Sequel::Plugins::Bitemporal.now
+          point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
           pending_version.created_at = point_in_time
-          pending_version.valid_from ||= point_in_time
+          pending_version.valid_from ||= now
         end
 
         def expire_previous_versions

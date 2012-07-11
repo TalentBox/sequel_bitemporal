@@ -484,6 +484,51 @@ describe "Sequel::Plugins::Bitemporal" do
       | King Size       | 94    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
     }
   end
+  it "as_we_knew_it also allows creating and deleting at that time" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+1) do
+      master.update_attributes name: "King Size", partial_update: true
+    end
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | King Size       | 98    | 2009-11-29 |            | 2009-11-29 | MAX DATE   |         |
+    }
+    Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+2) do
+      master.current_version(true).destroy
+    end
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
+      | King Size       | 98    | 2009-11-29 | 2009-11-30 | 2009-11-29 | MAX DATE   |         |
+      | King Size       | 98    | 2009-11-30 |            | 2009-11-29 | 2009-11-30 |         |
+    }
+  end
+  it "combines as_we_knew_it and at to set valid_from" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today-2, valid_to: Date.today
+    master.update_attributes name: "Single Standard", price: 94
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
+    }
+    Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+1) do
+      Sequel::Plugins::Bitemporal.at(Date.today-1) do
+        master.update_attributes name: "King Size", partial_update: true
+      end
+    end
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-26 | 2009-11-28 |         |
+      | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
+      | Single Standard | 98    | 2009-11-29 |            | 2009-11-26 | 2009-11-27 |         |
+      | King Size       | 98    | 2009-11-29 |            | 2009-11-27 | 2009-11-28 |         |
+    }
+  end
 end
 
 describe "Sequel::Plugins::Bitemporal", "with audit" do
