@@ -493,8 +493,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
-      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | King Size       | 98    | 2009-11-29 |            | 2009-11-29 | MAX DATE   |         |
+      | King Size       | 98    | 2009-11-29 |            | 2009-11-28 | MAX DATE   |         |
     }
     Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+2) do
       master.current_version(true).destroy
@@ -502,9 +501,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master.should have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
       | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
-      | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
-      | King Size       | 98    | 2009-11-29 | 2009-11-30 | 2009-11-29 | MAX DATE   |         |
-      | King Size       | 98    | 2009-11-30 |            | 2009-11-29 | 2009-11-30 |         |
+      | King Size       | 98    | 2009-11-29 | 2009-11-30 | 2009-11-28 | MAX DATE   |         |
+      | King Size       | 98    | 2009-11-30 |            | 2009-11-28 | 2009-11-28 |         |
     }
   end
   it "combines as_we_knew_it and at to set valid_from" do

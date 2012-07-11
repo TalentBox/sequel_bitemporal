@@ -26,7 +26,7 @@ module Sequel
       end
 
       def self.now
-        Thread.current[THREAD_NOW_KEY] || point_in_time
+        Thread.current[THREAD_NOW_KEY] || Time.now
       end
 
       def self.configure(master, opts = {})
@@ -182,11 +182,12 @@ module Sequel
         end
 
         def destroy_version(version, expand_previous_version)
+          now = ::Sequel::Plugins::Bitemporal.now
           point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
-          return false if version.valid_to.to_time<=point_in_time
+          return false if version.valid_to.to_time<=now
           model.db.transaction do
             success = true
-            version_was_valid = point_in_time>=version.valid_from.to_time
+            version_was_valid = now>=version.valid_from.to_time
             if expand_previous_version
               previous = versions_dataset.where({
                 expired_at: nil,
@@ -194,14 +195,14 @@ module Sequel
               }).where("valid_to>valid_from").first
               if previous
                 if version_was_valid
-                  success &&= save_fossil previous, created_at: point_in_time, valid_from: point_in_time, valid_to: version.valid_to
+                  success &&= save_fossil previous, created_at: point_in_time, valid_from: now, valid_to: version.valid_to
                 else
                   success &&= save_fossil previous, created_at: point_in_time, valid_to: version.valid_to
                   success &&= previous.update expired_at: point_in_time
                 end
               end
             end
-            success &&= save_fossil version, created_at: point_in_time, valid_to: point_in_time if version_was_valid
+            success &&= save_fossil version, created_at: point_in_time, valid_to: now if version_was_valid
             success &&= version.update expired_at: point_in_time
             raise Sequel::Rollback unless success
             success
