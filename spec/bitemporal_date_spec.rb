@@ -563,7 +563,9 @@ end
 describe "Sequel::Plugins::Bitemporal", "with audit" do
   include DbHelpers
   before :all do
-    @audit_class = Class.new
+    @audit_class = Class.new do
+      def self.audit(*args); end
+    end
     db_setup audit_class: @audit_class
   end
   before do
@@ -587,7 +589,6 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
   it "generates a new audit on full update" do
     master = @master_class.new
     master.should_receive(:updated_by_id).twice.and_return(updated_by_id = stub)
-    @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,
@@ -601,7 +602,6 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
   it "generates a new audit on partial update" do
     master = @master_class.new
     master.should_receive(:updated_by_id).twice.and_return(updated_by_id = stub)
-    @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,
@@ -612,11 +612,55 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
     )
     master.update_attributes partial_update: true, name: "King size", price: 98 
   end
+  it "generate a new audit for each future version update when propagating changes" do
+    propagate_per_column = @master_class.propagate_per_column
+    begin
+      @master_class.instance_variable_set :@propagate_per_column, true
+      master = @master_class.new
+      master.should_receive(:updated_by_id).exactly(9).times.and_return(updated_by_id = stub)
+
+      master.update_attributes name: "Single Standard", price: 12, length: nil, width: 1
+      initial_today = Date.today
+      Timecop.freeze initial_today+1 do
+        Sequel::Plugins::Bitemporal.at initial_today+4 do
+          master.update_attributes valid_from: initial_today+4, name: "King Size", price: 15, length: 2, width: 2, partial_update: true
+        end
+      end
+      Timecop.freeze initial_today+2 do
+        Sequel::Plugins::Bitemporal.at initial_today+3 do
+          master.update_attributes valid_from: initial_today+3, length: 1, width: 1, partial_update: true
+        end
+      end
+      @audit_class.should_receive(:audit).with(
+        master,
+        hash_including({name: "Single Standard", price: 12, length: nil, width: 1}),
+        hash_including({name: "Single Standard", price: 12, length: 3, width: 4}),
+        initial_today+2,
+        updated_by_id
+      )
+      @audit_class.should_receive(:audit).with(
+        master,
+        hash_including({name: "Single Standard", price: 12, length: 1, width: 1}),
+        hash_including({name: "Single Standard", price: 12, length: 1, width: 4}),
+        initial_today+3,
+        updated_by_id
+      )
+      Timecop.freeze initial_today+3 do
+        Sequel::Plugins::Bitemporal.at initial_today+2 do
+          master.update_attributes valid_from: initial_today+2, length: 3, width: 4, partial_update: true
+        end
+      end
+    ensure
+      @master_class.instance_variable_set :@propagate_per_column, propagate_per_column
+    end
+  end
 end
 describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the updated id" do
   include DbHelpers
   before :all do
-    @audit_class = Class.new
+    @audit_class = Class.new do
+      def self.audit(*args); end
+    end
     db_setup audit_class: @audit_class, audit_updated_by_method: :author_id
   end
   before do
@@ -640,7 +684,6 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the u
   it "generates a new audit on full update" do
     master = @master_class.new
     master.should_receive(:author_id).twice.and_return(updated_by_id = stub)
-    @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,
@@ -654,7 +697,6 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the u
   it "generates a new audit on partial update" do
     master = @master_class.new
     master.should_receive(:author_id).twice.and_return(updated_by_id = stub)
-    @audit_class.stub(:audit)
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,

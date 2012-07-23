@@ -18,7 +18,7 @@ module Sequel
       end
 
       THREAD_NOW_KEY = :sequel_plugins_bitemporal_now
-      def self.at(time)                                            
+      def self.at(time)
         previous = Thread.current[THREAD_NOW_KEY]
         raise ArgumentError, "requires a block" unless block_given?
         Thread.current[THREAD_NOW_KEY] = time.to_datetime
@@ -270,6 +270,15 @@ module Sequel
             end
             if attrs.any?
               propagated = save_propagated future_version, attrs
+              if !propagated.new? && audited?
+                self.class.audit_class.audit(
+                  self,
+                  future_version.values,
+                  propagated.values,
+                  propagated.valid_from,
+                  send(self.class.audit_updated_by_method)
+                )
+              end
               previous_values = future_version.values.dup
               current_version_values = propagated.values
               future_version.this.update :expired_at => Sequel::Plugins::Bitemporal.point_in_time
@@ -284,14 +293,14 @@ module Sequel
           pending_version.valid_to ||= Time.utc 9999
           success = add_version pending_version
           if success
-            propagate_changes_to_future_versions
             self.class.audit_class.audit(
               self,
               current_values_for_audit,
               pending_version.values,
-              pending_version.valid_from, 
+              pending_version.valid_from,
               send(self.class.audit_updated_by_method)
             ) if audited?
+            propagate_changes_to_future_versions
             @pending_version = nil
           end
           success
