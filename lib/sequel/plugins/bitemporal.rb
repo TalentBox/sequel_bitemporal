@@ -31,11 +31,14 @@ module Sequel
         Thread.current[THREAD_NOW_KEY] || DateTime.now
       end
 
+      def self.bitemporal_version_columns
+        @bitemporal_version_columns ||= [:master_id, :valid_from, :valid_to, :created_at, :expired_at]
+      end
+
       def self.configure(master, opts = {})
         version = opts[:version_class]
         raise Error, "please specify version class to use for bitemporal plugin" unless version
-        required = [:master_id, :valid_from, :valid_to, :created_at, :expired_at]
-        missing = required - version.columns
+        missing = bitemporal_version_columns - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
         master.instance_eval do
           @version_class = version
@@ -44,6 +47,7 @@ module Sequel
           @current_version_alias = "#{base_alias}_current_version".to_sym
           @audit_class = opts[:audit_class]
           @audit_updated_by_method = opts[:audit_updated_by_method] || :updated_by_id
+          @propagate_per_column = opts.fetch(:propagate_per_column, false)
         end
         master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
         master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
@@ -91,7 +95,7 @@ module Sequel
           end
         end
         unless opts[:delegate]==false
-          (version.columns-required-[:id]).each do |column|
+          (version.columns-bitemporal_version_columns-[:id]).each do |column|
             master.class_eval <<-EOS
               def #{column}
                 pending_or_current_version.#{column} if pending_or_current_version
@@ -102,6 +106,7 @@ module Sequel
       end
       module ClassMethods
         attr_reader :version_class, :versions_alias, :current_version_alias
+        attr_reader :propagate_per_column
         attr_reader :audit_class, :audit_updated_by_method
       end
       module DatasetMethods
@@ -140,8 +145,8 @@ module Sequel
         end
 
         def attributes=(attributes)
+          @current_version_values = current_version ? current_version.values : {}
           if attributes.delete(:partial_update) && !@pending_version && !new? && current_version
-            @current_version_values = current_version.values if audited?
             current_attributes = current_version.keys.inject({}) do |hash, key|
               hash[key] = current_version.send key
               hash
@@ -149,8 +154,6 @@ module Sequel
             current_attributes.delete :valid_from
             current_attributes.delete :valid_to
             attributes = current_attributes.merge attributes
-          elsif audited? && !new? && current_version
-            @current_version_values = current_version.values
           end
           attributes.delete :id
           @pending_version ||= model.version_class.new
@@ -242,11 +245,46 @@ module Sequel
           versions_dataset.where(id: expired.collect(&:id)).update expired_at: pending_version.created_at
         end
 
+        def propagate_changes_to_future_versions
+          return true unless self.class.propagate_per_column
+          lock!
+          futures = versions_dataset.where expired_at: nil
+          futures = futures.exclude "valid_from=valid_to"
+          futures = futures.exclude "valid_to<=?", pending_version.valid_from
+          futures = futures.where "valid_from>?", pending_version.valid_from
+          futures = futures.order(:valid_from).all
+
+          excluded_columns = Sequel::Plugins::Bitemporal.bitemporal_version_columns + [:id]
+          to_check_columns = self.class.version_class.columns - excluded_columns
+          updated_by = send(self.class.audit_updated_by_method) if audited?
+          previous_values = @current_version_values
+          current_version_values = pending_version.values
+
+          futures.each do |future_version|
+            attrs = {}
+            to_check_columns.each do |col|
+              if previous_values[col]==future_version[col] &&
+                  previous_values[col]!=current_version_values[col]
+                attrs[col] = current_version_values[col]
+              end
+            end
+            if attrs.any?
+              propagated = save_propagated future_version, attrs
+              previous_values = future_version.values.dup
+              current_version_values = propagated.values
+              future_version.this.update :expired_at => Sequel::Plugins::Bitemporal.point_in_time
+            else
+              break
+            end
+          end
+        end
+
         def save_pending_version
-          current_values_for_audit = @current_version_values || {} if audited?
+          current_values_for_audit = @current_version_values || {}
           pending_version.valid_to ||= Time.utc 9999
           success = add_version pending_version
           if success
+            propagate_changes_to_future_versions
             self.class.audit_class.audit(
               self,
               current_values_for_audit,
@@ -254,7 +292,6 @@ module Sequel
               pending_version.valid_from, 
               send(self.class.audit_updated_by_method)
             ) if audited?
-            @current_version_values = nil if audited?
             @pending_version = nil
           end
           success
@@ -266,6 +303,16 @@ module Sequel
           expired_attributes.delete :id
           fossil.send :set_values, expired_attributes.merge(attributes)
           fossil.save validate: false
+        end
+
+        def save_propagated(version, attributes={})
+          propagated = model.version_class.new
+          version_attributes = version.values.dup
+          version_attributes.delete :id
+          version_attributes[:created_at] = Sequel::Plugins::Bitemporal.point_in_time
+          propagated.send :set_values, version_attributes.merge(attributes)
+          propagated.save validate: false
+          propagated
         end
       end
     end

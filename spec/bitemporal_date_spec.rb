@@ -312,6 +312,37 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
     }
   end
+  it "can propagate changes to future versions per column" do
+    propagate_per_column = @master_class.propagate_per_column
+    begin
+      @master_class.instance_variable_set :@propagate_per_column, true
+      master = @master_class.new
+      master.update_attributes name: "Single Standard", price: 12, length: nil, width: 1
+      initial_today = Date.today
+      Timecop.freeze initial_today+1 do
+        master.update_attributes valid_from: initial_today+4, name: "King Size", price: 15, length: 2, width: 2, partial_update: true
+      end
+      Timecop.freeze initial_today+2 do
+        master.update_attributes valid_from: initial_today+3, length: 1, width: 1, partial_update: true
+      end
+      Timecop.freeze initial_today+3 do
+        master.update_attributes valid_from: initial_today+2, length: 3, width: 4, partial_update: true
+      end
+      master.should have_versions %Q{
+        | name            | price | length | width | created_at | expired_at | valid_from | valid_to   | current |
+        | Single Standard | 12    |        | 1     | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
+        | Single Standard | 12    |        | 1     | 2009-11-29 | 2009-11-30 | 2009-11-28 | 2009-12-02 |         |
+        | King Size       | 15    | 2      | 2     | 2009-11-29 |            | 2009-12-02 | MAX DATE   |         |
+        | Single Standard | 12    |        | 1     | 2009-11-30 | 2009-12-01 | 2009-11-28 | 2009-12-01 |         |
+        | Single Standard | 12    | 1      | 1     | 2009-11-30 | 2009-12-01 | 2009-12-01 | 2009-12-02 |         |
+        | Single Standard | 12    |        | 1     | 2009-12-01 |            | 2009-11-28 | 2009-11-30 |         |
+        | Single Standard | 12    | 3      | 4     | 2009-12-01 |            | 2009-11-30 | 2009-12-01 |         |
+        | Single Standard | 12    | 1      | 4     | 2009-12-01 |            | 2009-12-01 | 2009-12-02 |         |
+      }
+    ensure
+      @master_class.instance_variable_set :@propagate_per_column, propagate_per_column
+    end
+  end
   it "allows eager loading with conditions on current version" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98

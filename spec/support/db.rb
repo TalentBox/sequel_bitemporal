@@ -19,6 +19,8 @@ module DbHelpers
       foreign_key :master_id, :rooms
       String      :name
       Fixnum      :price
+      Fixnum      :length
+      Fixnum      :width
       send(use_time ? :Time : :Date, :created_at)
       send(use_time ? :Time : :Date, :expired_at)
       send(use_time ? :Time : :Date, :valid_from)
