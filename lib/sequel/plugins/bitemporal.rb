@@ -154,7 +154,7 @@ module Sequel
             current_attributes.delete :valid_from
             current_attributes.delete :valid_to
             attributes = current_attributes.merge attributes
-          elsif audited? && !new? && current_version
+          elsif !new? && current_version
             @current_version_values = current_version.values
           end
           attributes.delete :id
@@ -303,7 +303,7 @@ module Sequel
               send(self.class.audit_updated_by_method)
             ) if audited?
             propagate_changes_to_future_versions
-            @current_version_values = nil if audited?
+            @current_version_values = nil
             @pending_version = nil
           end
           success
