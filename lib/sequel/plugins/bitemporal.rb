@@ -145,8 +145,8 @@ module Sequel
         end
 
         def attributes=(attributes)
-          @current_version_values = current_version ? current_version.values : {}
           if attributes.delete(:partial_update) && !@pending_version && !new? && current_version
+            @current_version_values = current_version.values
             current_attributes = current_version.keys.inject({}) do |hash, key|
               hash[key] = current_version.send key
               hash
@@ -154,6 +154,8 @@ module Sequel
             current_attributes.delete :valid_from
             current_attributes.delete :valid_to
             attributes = current_attributes.merge attributes
+          elsif audited? && !new? && current_version
+            @current_version_values = current_version.values
           end
           attributes.delete :id
           @pending_version ||= model.version_class.new
@@ -301,6 +303,7 @@ module Sequel
               send(self.class.audit_updated_by_method)
             ) if audited?
             propagate_changes_to_future_versions
+            @current_version_values = nil if audited?
             @pending_version = nil
           end
           success
