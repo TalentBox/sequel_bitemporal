@@ -46,7 +46,7 @@ module Sequel
           @versions_alias = "#{base_alias}_versions".to_sym
           @current_version_alias = "#{base_alias}_current_version".to_sym
           @audit_class = opts[:audit_class]
-          @audit_updated_by_method = opts[:audit_updated_by_method] || :updated_by_id
+          @audit_updated_by_method = opts.fetch(:audit_updated_by_method){ :updated_by }
           @propagate_per_column = opts.fetch(:propagate_per_column, false)
         end
         master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
@@ -272,13 +272,13 @@ module Sequel
             end
             if attrs.any?
               propagated = save_propagated future_version, attrs
-              if !propagated.new? && audited?
+              if !propagated.new? && audited? && updated_by
                 self.class.audit_class.audit(
                   self,
                   future_version.values,
                   propagated.values,
                   propagated.valid_from,
-                  send(self.class.audit_updated_by_method)
+                  updated_by
                 )
               end
               previous_values = future_version.values.dup

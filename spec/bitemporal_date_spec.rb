@@ -574,41 +574,42 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
   after do
     Timecop.return
   end
+  let(:author){ mock :author, audit_kind: "user" }
   it "generates a new audit on creation" do
     master = @master_class.new
-    master.should_receive(:updated_by_id).and_return(updated_by_id = stub)
+    master.should_receive(:updated_by).and_return author
     @audit_class.should_receive(:audit).with(
       master,
       {},
       hash_including({name: "Single Standard", price: 98}),
       Date.today,
-      updated_by_id
+      author
     )
     master.update_attributes name: "Single Standard", price: 98
   end
   it "generates a new audit on full update" do
     master = @master_class.new
-    master.should_receive(:updated_by_id).twice.and_return(updated_by_id = stub)
+    master.should_receive(:updated_by).twice.and_return author
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Date.today,
-      updated_by_id
+      author
     )
     master.update_attributes name: "King size", price: 98 
   end
   it "generates a new audit on partial update" do
     master = @master_class.new
-    master.should_receive(:updated_by_id).twice.and_return(updated_by_id = stub)
+    master.should_receive(:updated_by).twice.and_return author
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Date.today,
-      updated_by_id
+      author
     )
     master.update_attributes partial_update: true, name: "King size", price: 98 
   end
@@ -617,7 +618,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
     begin
       @master_class.instance_variable_set :@propagate_per_column, true
       master = @master_class.new
-      master.should_receive(:updated_by_id).exactly(9).times.and_return(updated_by_id = stub)
+      master.should_receive(:updated_by).exactly(8).times.and_return author
 
       master.update_attributes name: "Single Standard", price: 12, length: nil, width: 1
       initial_today = Date.today
@@ -636,14 +637,14 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
         hash_including({name: "Single Standard", price: 12, length: nil, width: 1}),
         hash_including({name: "Single Standard", price: 12, length: 3, width: 4}),
         initial_today+2,
-        updated_by_id
+        author
       )
       @audit_class.should_receive(:audit).with(
         master,
         hash_including({name: "Single Standard", price: 12, length: 1, width: 1}),
         hash_including({name: "Single Standard", price: 12, length: 1, width: 4}),
         initial_today+3,
-        updated_by_id
+        author
       )
       Timecop.freeze initial_today+3 do
         Sequel::Plugins::Bitemporal.at initial_today+2 do
@@ -655,14 +656,15 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
     end
   end
 end
-describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the updated id" do
+describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the author" do
   include DbHelpers
   before :all do
     @audit_class = Class.new do
       def self.audit(*args); end
     end
-    db_setup audit_class: @audit_class, audit_updated_by_method: :author_id
+    db_setup audit_class: @audit_class, audit_updated_by_method: :author
   end
+  let(:author){ mock :author, audit_kind: "user" }
   before do
     Timecop.freeze 2009, 11, 28
   end
@@ -671,39 +673,39 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the u
   end
   it "generates a new audit on creation" do
     master = @master_class.new
-    master.should_receive(:author_id).and_return(updated_by_id = stub)
+    master.should_receive(:author).and_return author
     @audit_class.should_receive(:audit).with(
       master,
       {},
       hash_including({name: "Single Standard", price: 98}),
       Date.today,
-      updated_by_id
+      author
     )
     master.update_attributes name: "Single Standard", price: 98
   end
   it "generates a new audit on full update" do
     master = @master_class.new
-    master.should_receive(:author_id).twice.and_return(updated_by_id = stub)
+    master.should_receive(:author).twice.and_return author
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Date.today,
-      updated_by_id
+      author
     )
     master.update_attributes name: "King size", price: 98 
   end
   it "generates a new audit on partial update" do
     master = @master_class.new
-    master.should_receive(:author_id).twice.and_return(updated_by_id = stub)
+    master.should_receive(:author).twice.and_return author
     master.update_attributes name: "Single Standard", price: 98
     @audit_class.should_receive(:audit).with(
       master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
       Date.today,
-      updated_by_id
+      author
     )
     master.update_attributes partial_update: true, name: "King size", price: 98 
   end
