@@ -3,7 +3,7 @@ $:.push File.expand_path("../lib", __FILE__)
 
 Gem::Specification.new do |s|
   s.name        = "sequel_bitemporal"
-  s.version     = "0.4.18"
+  s.version     = "0.4.19"
   s.authors     = ["Joseph HALTER", "Jonathan TRON"]
   s.email       = ["joseph.halter@thetalentbox.com", "jonathan.tron@thetalentbox.com"]
   s.homepage    = "https://github.com/TalentBox/sequel_bitemporal"
@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "sequel", "~> 3.30"
 
   s.add_development_dependency "sqlite3"
-  s.add_development_dependency "rspec", "~> 2.10.0" 
+  s.add_development_dependency "rspec", "~> 2.10.0"
   s.add_development_dependency "timecop"
   s.add_development_dependency "rake"
 end
