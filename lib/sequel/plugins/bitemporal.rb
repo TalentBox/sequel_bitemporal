@@ -258,7 +258,7 @@ module Sequel
 
           excluded_columns = Sequel::Plugins::Bitemporal.bitemporal_version_columns + [:id]
           to_check_columns = self.class.version_class.columns - excluded_columns
-          updated_by = send(self.class.audit_updated_by_method) if audited?
+          updated_by = (send(self.class.audit_updated_by_method) if audited?)
           previous_values = @current_version_values
           current_version_values = pending_version.values
 
@@ -295,13 +295,16 @@ module Sequel
           pending_version.valid_to ||= Time.utc 9999
           success = add_version pending_version
           if success
-            self.class.audit_class.audit(
-              self,
-              current_values_for_audit,
-              pending_version.values,
-              pending_version.valid_from,
-              send(self.class.audit_updated_by_method)
-            ) if audited?
+            if audited?
+              updated_by = send(self.class.audit_updated_by_method)
+              self.class.audit_class.audit(
+                self,
+                current_values_for_audit,
+                pending_version.values,
+                pending_version.valid_from,
+                updated_by
+              ) if updated_by
+            end
             propagate_changes_to_future_versions
             @current_version_values = nil
             @pending_version = nil
