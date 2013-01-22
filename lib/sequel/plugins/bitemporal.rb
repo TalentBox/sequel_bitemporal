@@ -158,9 +158,11 @@ module Sequel
             @current_version_values = current_version.values
           end
           attributes.delete :id
-          @pending_version ||= model.version_class.new
-          pending_version.set attributes
-          pending_version.master_id = id unless new?
+          if attributes_hold_changes? attributes
+            @pending_version ||= model.version_class.new
+            pending_version.set attributes
+            pending_version.master_id = id unless new?
+          end
         end
 
         def update_attributes(attributes={})
@@ -329,6 +331,24 @@ module Sequel
           propagated.save validate: false
           propagated
         end
+
+        def attributes_hold_changes?(attributes)
+          if new? || !current_version
+            attributes.any?
+          else
+            attributes.detect do |key, new_value|
+              case key
+              when :master_id, :valid_to, :created_at, :expired_at
+                false
+              when :valid_from
+                new_value && new_value<current_version.valid_from
+              else
+                current_version.send(key)!=new_value
+              end
+            end
+          end
+        end
+
       end
     end
   end

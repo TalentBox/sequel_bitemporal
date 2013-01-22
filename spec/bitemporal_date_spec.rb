@@ -144,7 +144,25 @@ describe "Sequel::Plugins::Bitemporal" do
     # | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
     # | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | MAX DATE   | true    |
   end
-  xit "doesn't do anything if unchanged" do
+  it "don't create any new version without change" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes price: 98, partial_update: true
+    master.update_attributes name: "Single Standard", price: 98
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
+    }
+  end
+  it "change in validity still creates a new version" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes price: 98, partial_update: true, valid_from: Date.today-2
+    master.update_attributes price: 98, partial_update: true, valid_from: Date.today+1
+    master.should have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
+    }
   end
   it "overrides no future versions" do
     master = @master_class.new
@@ -598,7 +616,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
       Date.today,
       author
     )
-    master.update_attributes name: "King size", price: 98 
+    master.update_attributes name: "King size", price: 98
   end
   it "generates a new audit on partial update" do
     master = @master_class.new
@@ -611,7 +629,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
       Date.today,
       author
     )
-    master.update_attributes partial_update: true, name: "King size", price: 98 
+    master.update_attributes partial_update: true, name: "King size", price: 98
   end
   it "generate a new audit for each future version update when propagating changes" do
     propagate_per_column = @master_class.propagate_per_column
@@ -694,7 +712,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
       Date.today,
       author
     )
-    master.update_attributes name: "King size", price: 98 
+    master.update_attributes name: "King size", price: 98
   end
   it "generates a new audit on partial update" do
     master = @master_class.new
@@ -707,7 +725,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
       Date.today,
       author
     )
-    master.update_attributes partial_update: true, name: "King size", price: 98 
+    master.update_attributes partial_update: true, name: "King size", price: 98
   end
 end
 
