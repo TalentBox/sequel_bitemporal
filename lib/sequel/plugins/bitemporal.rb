@@ -333,20 +333,17 @@ module Sequel
         end
 
         def attributes_hold_changes?(attributes)
-          if new? || !current_version
-            attributes.any?
-          else
-            attributes.detect do |key, new_value|
-              case key
-              when :master_id, :created_at, :expired_at
-                false
-              when :valid_from
-                new_value && new_value<current_version.valid_from
-              when :valid_to
-                new_value || new_value!=current_version.valid_to
-              else
-                current_version.send(key)!=new_value
-              end
+          return true if new? || !current_version
+          attributes.detect do |key, new_value|
+            case key
+            when :master_id, :created_at, :expired_at
+              false
+            when :valid_from
+              new_value && new_value<current_version.valid_from
+            when :valid_to
+              new_value || new_value!=current_version.valid_to
+            else
+              current_version.send(key)!=new_value
             end
           end
         end
