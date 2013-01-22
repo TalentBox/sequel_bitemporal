@@ -338,10 +338,12 @@ module Sequel
           else
             attributes.detect do |key, new_value|
               case key
-              when :master_id, :valid_to, :created_at, :expired_at
+              when :master_id, :created_at, :expired_at
                 false
               when :valid_from
                 new_value && new_value<current_version.valid_from
+              when :valid_to
+                new_value || new_value!=current_version.valid_to
               else
                 current_version.send(key)!=new_value
               end

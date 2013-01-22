@@ -154,15 +154,21 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000| MAX TIME | true    |
     }
   end
-  it "change in validity still creates a new version" do
+  it "change in validity still creates a new version (SEE COMMENTS FOR IMPROVEMENTS)" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
+    Timecop.freeze Time.now+hour
     master.update_attributes price: 98, partial_update: true, valid_from: Time.now-2*hour
     master.update_attributes price: 98, partial_update: true, valid_from: Time.now+1*hour
     master.should have_versions %Q{
-      | name            | price | created_at                | expired_at | valid_from               | valid_to | current |
-      | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000| MAX TIME | true    |
+      | name            | price | created_at                | expired_at | valid_from                | valid_to                  | current |
+      | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000 | MAX TIME                  | true    |
+      | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |            | 2009-11-28 09:00:00 +0000 | 2009-11-28 10:00:00 +0000 |         |
     }
+    # would be even better if it could be:
+    # | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
+    # | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
+    # | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |                           | 2009-11-28 09:00:00 +0000 | MAX TIME                  | true    |
   end
   it "overrides no future versions" do
     master = @master_class.new
