@@ -145,23 +145,19 @@ module Sequel
         end
 
         def attributes=(attributes)
-          if attributes.delete(:partial_update) && !@pending_version && !new? && current_version
-            @current_version_values = current_version.values
-            current_attributes = current_version.keys.inject({}) do |hash, key|
-              hash[key] = current_version.send key
-              hash
-            end
-            current_attributes.delete :valid_from
-            current_attributes.delete :valid_to
-            attributes = current_attributes.merge attributes
-          elsif !new? && current_version
-            @current_version_values = current_version.values
-          end
-          attributes.delete :id
           if attributes_hold_changes? attributes
-            @pending_version ||= model.version_class.new
+            @pending_version ||= begin
+              current_attributes = {}
+              current_version.keys.each do |key|
+                case key
+                when :id, :valid_from, :valid_to, :created_at, :expired_at
+                else
+                  current_attributes[key] = current_version.send key
+                end
+              end if current_version?
+              model.version_class.new current_attributes
+            end
             pending_version.set attributes
-            pending_version.master_id = id unless new?
           end
         end
 
@@ -332,8 +328,13 @@ module Sequel
           propagated
         end
 
+        def current_version?
+          !new? && current_version
+        end
+
         def attributes_hold_changes?(attributes)
-          return true if new? || !current_version
+          return true unless current_version?
+          @current_version_values = current_version.values
           attributes.detect do |key, new_value|
             case key
             when :master_id, :created_at, :expired_at

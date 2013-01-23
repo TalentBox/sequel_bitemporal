@@ -75,8 +75,8 @@ describe "Sequel::Plugins::Bitemporal" do
   it "allows partial updating based on current version" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
-    master.update_attributes price: 94, partial_update: true
-    master.update_attributes name: "King Size", partial_update: true
+    master.update_attributes price: 94
+    master.update_attributes name: "King Size"
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME |         |
@@ -88,7 +88,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+hour
-    master.update_attributes price: 94, partial_update: true
+    master.update_attributes price: 94
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
@@ -100,7 +100,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_to: Time.now+hour
     Timecop.freeze Time.now+hour
-    master.update_attributes(price: 94, partial_update: true).should be_false
+    master.update_attributes(price: 94).should be_false
     master.update_attributes name: "Single Standard", price: 94
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to                  | current |
@@ -112,7 +112,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+hour
-    master.update_attributes valid_to: Time.now+10*hour, partial_update: true
+    master.update_attributes valid_to: Time.now+10*hour
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
@@ -132,7 +132,7 @@ describe "Sequel::Plugins::Bitemporal" do
       | name            | price | created_at                | expired_at | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 | true    |
     }
-    master.update_attributes valid_to: nil, partial_update: true
+    master.update_attributes valid_to: nil
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
@@ -147,7 +147,7 @@ describe "Sequel::Plugins::Bitemporal" do
   it "don't create any new version without change " do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
-    master.update_attributes price: 98, partial_update: true
+    master.update_attributes price: 98
     master.update_attributes name: "Single Standard", price: 98
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from               | valid_to | current |
@@ -158,8 +158,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+hour
-    master.update_attributes price: 98, partial_update: true, valid_from: Time.now-2*hour
-    master.update_attributes price: 98, partial_update: true, valid_from: Time.now+1*hour
+    master.update_attributes price: 98, valid_from: Time.now-2*hour
+    master.update_attributes price: 98, valid_from: Time.now+1*hour
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000 | MAX TIME                  | true    |
@@ -176,7 +176,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour, valid_to: Time.now+4*hour
     master.update_attributes name: "Single Standard", price: 95, valid_from: Time.now+4*hour, valid_to: Time.now+6*hour
     Timecop.freeze Time.now+hour
-    master.update_attributes name: "King Size", valid_to: nil, partial_update: true
+    master.update_attributes name: "King Size", valid_to: nil
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
@@ -192,7 +192,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour, valid_to: Time.now+4*hour
     master.update_attributes name: "Single Standard", price: 95, valid_from: Time.now+4*hour, valid_to: Time.now+6*hour
     Timecop.freeze Time.now+hour
-    master.update_attributes name: "King Size", valid_to: Time.now+4*hour, partial_update: true
+    master.update_attributes name: "King Size", valid_to: Time.now+4*hour
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
@@ -209,7 +209,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour, valid_to: Time.now+4*hour
     master.update_attributes name: "Single Standard", price: 95, valid_from: Time.now+4*hour, valid_to: Time.now+6*hour
     Timecop.freeze Time.now+hour
-    master.update_attributes name: "King Size", valid_to: Time.utc(9999), partial_update: true
+    master.update_attributes name: "King Size", valid_to: Time.utc(9999)
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
@@ -280,8 +280,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+hour
     master2 = @master_class.find id: master.id
-    master.update_attributes price: 94, partial_update: true
-    master2.update_attributes name: "King Size", partial_update: true
+    master.update_attributes price: 94
+    master2.update_attributes name: "King Size"
     master.should have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
@@ -327,7 +327,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+1*hour
-    master.update_attributes price: 94, partial_update: true
+    master.update_attributes price: 94
     master.current_version.price.should == 94
     Sequel::Plugins::Bitemporal.as_we_knew_it(Time.now-1*hour) do
       master.current_version(true).price.should == 98
@@ -428,7 +428,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
       Time.now,
       author
     )
-    master.update_attributes partial_update: true, name: "King size", price: 98
+    master.update_attributes name: "King size", price: 98
   end
 end
 
@@ -483,7 +483,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
       Time.now,
       author
     )
-    master.update_attributes partial_update: true, name: "King size", price: 98
+    master.update_attributes name: "King size", price: 98
   end
 end
 
