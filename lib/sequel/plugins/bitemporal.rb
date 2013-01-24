@@ -337,7 +337,7 @@ module Sequel
           @current_version_values = current_version.values
           attributes.detect do |key, new_value|
             case key
-            when :master_id, :created_at, :expired_at
+            when :id, :master_id, :created_at, :expired_at
               false
             when :valid_from
               new_value && new_value<current_version.valid_from
