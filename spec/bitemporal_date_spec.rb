@@ -582,6 +582,51 @@ describe "Sequel::Plugins::Bitemporal" do
       | King Size       | 98    | 2009-11-29 |            | 2009-11-27 | 2009-11-28 |         |
     }
   end
+  context "#deleted?" do
+    subject{ @master_class.new }
+    it "is false unless persisted" do
+      subject.should_not be_deleted
+    end
+    it "is false when persisted with a current version" do
+      subject.update_attributes(name: "Single Standard", price: 94).should_not be_deleted
+    end
+    it "is true when persisted without a current version" do
+      subject.update_attributes(name: "Single Standard", price: 94, valid_from: Date.today+1).should be_deleted
+    end
+  end
+  context "#last_version" do
+    subject{ @master_class.new }
+    it "is nil unless persisted" do
+      subject.last_version.should be_nil
+    end
+    it "is current version when persisted with a current version" do
+      subject.update_attributes name: "Single Standard", price: 94
+      subject.last_version.should == subject.current_version
+    end
+    it "is nil with future version but no current version" do
+      subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+1
+      subject.last_version.should be_nil
+    end
+    it "is last version with previous version but no current version" do
+      subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today-2, valid_to: Date.today-1
+      subject.current_version.should be_nil
+      subject.last_version.should == subject.versions.last
+    end
+  end
+  context "#restore" do
+    subject{ @master_class.new }
+    it "make last version current" do
+      subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today-2, valid_to: Date.today-1
+      subject.restore
+      subject.current_version.should == subject.last_version
+    end
+    it "can add additional attributes to apply" do
+      subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today-2, valid_to: Date.today-1
+      subject.restore name: "New Standard"
+      subject.current_version.name.should == "New Standard"
+      subject.current_version.price.should == 94
+    end
+  end
 end
 
 describe "Sequel::Plugins::Bitemporal", "with audit" do

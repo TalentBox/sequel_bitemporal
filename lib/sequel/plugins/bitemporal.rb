@@ -35,6 +35,10 @@ module Sequel
         @bitemporal_version_columns ||= [:master_id, :valid_from, :valid_to, :created_at, :expired_at]
       end
 
+      def self.bitemporal_excluded_columns
+        @bitemporal_excluded_columns ||= [:id, *bitemporal_version_columns]
+      end
+
       def self.configure(master, opts = {})
         version = opts[:version_class]
         raise Error, "please specify version class to use for bitemporal plugin" unless version
@@ -149,11 +153,8 @@ module Sequel
             @pending_version ||= begin
               current_attributes = {}
               current_version.keys.each do |key|
-                case key
-                when :id, :valid_from, :valid_to, :created_at, :expired_at
-                else
-                  current_attributes[key] = current_version.send key
-                end
+                next if excluded_columns.include? key
+                current_attributes[key] = current_version.send key
               end if current_version?
               model.version_class.new current_attributes
             end
@@ -214,6 +215,42 @@ module Sequel
           end
         end
 
+        def deleted?
+          !new? && !current_version
+        end
+
+        def last_version
+          @last_version ||= begin
+            return if new?
+            t = ::Sequel::Plugins::Bitemporal.point_in_time
+            n = ::Sequel::Plugins::Bitemporal.now
+            versions_dataset.where do
+              (created_at <= t) & ({expired_at=>nil} | (expired_at > t)) &
+              (valid_from <= n)
+            end.order(:valid_to.desc).first
+          end
+        end
+
+        def restore(attrs={})
+          return false unless deleted?
+          last_version_attributes = if last_version
+            last_version.values.reject do |column, _|
+              excluded_columns.include? column
+            end
+          else
+            {}
+          end
+          update_attributes last_version_attributes.merge attrs
+          @last_version = nil
+        end
+
+        def reload
+          @last_version = nil
+          @current_version_values = nil
+          @pending_version = nil
+          super
+        end
+
       private
 
         def prepare_pending_version
@@ -254,7 +291,6 @@ module Sequel
           futures = futures.where "valid_from>?", pending_version.valid_from
           futures = futures.order(:valid_from).all
 
-          excluded_columns = Sequel::Plugins::Bitemporal.bitemporal_version_columns + [:id]
           to_check_columns = self.class.version_class.columns - excluded_columns
           updated_by = (send(self.class.audit_updated_by_method) if audited?)
           previous_values = @current_version_values
@@ -340,13 +376,23 @@ module Sequel
             when :id, :master_id, :created_at, :expired_at
               false
             when :valid_from
-              new_value && new_value<current_version.valid_from
+              new_value && (
+                new_value<current_version.valid_from ||
+                (
+                  current_version.valid_to &&
+                  new_value>current_version.valid_to
+                )
+              )
             when :valid_to
               new_value || new_value!=current_version.valid_to
             else
               current_version.send(key)!=new_value
             end
           end
+        end
+
+        def excluded_columns
+          Sequel::Plugins::Bitemporal.bitemporal_excluded_columns
         end
 
       end
