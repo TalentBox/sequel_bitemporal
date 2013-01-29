@@ -227,7 +227,7 @@ module Sequel
             versions_dataset.where do
               (created_at <= t) & ({expired_at=>nil} | (expired_at > t)) &
               (valid_from <= n)
-            end.order(:valid_to.desc).first
+            end.order(:valid_to.desc, :created_at.desc).first
           end
         end
 
