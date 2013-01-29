@@ -151,7 +151,7 @@ module Sequel
         def attributes=(attributes)
           if attributes_hold_changes? attributes
             @pending_version ||= begin
-              current_attributes = {}
+              current_attributes = {master_id: id}
               current_version.keys.each do |key|
                 next if excluded_columns.include? key
                 current_attributes[key] = current_version.send key
