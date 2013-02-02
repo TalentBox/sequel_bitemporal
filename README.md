@@ -39,7 +39,7 @@ Usage
 Build Status
 ------------
 
-[![Build Status](http://travis-ci.org/TalentBox/sequel_bitemporal.png)](http://travis-ci.org/TalentBox/sequel_bitemporal)
+[![Build Status](https://travis-ci.org/TalentBox/sequel_bitemporal.png?branch=master)](https://travis-ci.org/TalentBox/sequel_bitemporal)
 
 License
 -------
