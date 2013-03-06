@@ -52,6 +52,7 @@ module Sequel
           @audit_class = opts[:audit_class]
           @audit_updated_by_method = opts.fetch(:audit_updated_by_method){ :updated_by }
           @propagate_per_column = opts.fetch(:propagate_per_column, false)
+          @version_uses_string_nilifier = version.plugins.map(&:to_s).include? "Sequel::Plugins::StringNilifier"
         end
         master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
         master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
@@ -109,9 +110,9 @@ module Sequel
         end
       end
       module ClassMethods
-        attr_reader :version_class, :versions_alias, :current_version_alias
-        attr_reader :propagate_per_column
-        attr_reader :audit_class, :audit_updated_by_method
+        attr_reader :version_class, :versions_alias, :current_version_alias,
+          :propagate_per_column, :audit_class, :audit_updated_by_method,
+          :version_uses_string_nilifier
       end
       module DatasetMethods
       end
@@ -386,6 +387,9 @@ module Sequel
             when :valid_to
               new_value || new_value!=current_version.valid_to
             else
+              if model.version_uses_string_nilifier
+                new_value = nil if current_version.nil_string? new_value
+              end
               current_version.send(key)!=new_value
             end
           end
