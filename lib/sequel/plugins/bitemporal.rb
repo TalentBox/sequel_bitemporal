@@ -388,7 +388,7 @@ module Sequel
               new_value || new_value!=current_version.valid_to
             else
               if model.version_uses_string_nilifier
-                new_value = nil if current_version.nil_string? new_value
+                new_value = nil if current_version.nil_string? key, new_value
               end
               current_version.send(key)!=new_value
             end
