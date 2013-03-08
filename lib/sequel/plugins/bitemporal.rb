@@ -117,7 +117,6 @@ module Sequel
       module DatasetMethods
       end
       module InstanceMethods
-        attr_reader :pending_version
 
         def audited?
           !!self.class.audit_class
@@ -132,36 +131,28 @@ module Sequel
           super
           pending_version.errors.each do |key, key_errors|
             key_errors.each{|error| errors.add key, error}
-          end if pending_version && !pending_version.valid?
-        end
-
-        def pending_or_current_version
-          pending_version || current_version
+          end if pending_version_holds_changes? && !pending_version.valid?
         end
 
         def attributes
-          if pending_version
-            pending_version.values
-          elsif current_version
-            current_version.values
-          else
-            {}
-          end
+          pending_version.values
         end
 
         def attributes=(attributes)
-          if attributes_hold_changes? attributes
-            @pending_version ||= begin
-              current_attributes = {master_id: id}
-              current_version.keys.each do |key|
-                next if excluded_columns.include? key
-                current_attributes[key] = current_version.send key
-              end if current_version?
-              model.version_class.new current_attributes
-            end
-            pending_version.set attributes
+          pending_version.set attributes
+        end
+
+        def pending_version
+          @pending_version ||= begin
+            current_attributes = {master_id: id}
+            current_version.keys.each do |key|
+              next if excluded_columns.include? key
+              current_attributes[key] = current_version.send key
+            end if current_version?
+            model.version_class.new current_attributes
           end
         end
+        alias_method :pending_or_current_version, :pending_version
 
         def update_attributes(attributes={})
           self.attributes = attributes
@@ -170,13 +161,13 @@ module Sequel
 
         def after_create
           super
-          if pending_version
+          if !current_version? || pending_version_holds_changes?
             return false unless save_pending_version
           end
         end
 
         def before_update
-          if pending_version
+          if !current_version? || pending_version_holds_changes?
             expire_previous_versions
             return false unless save_pending_version
           end
@@ -369,10 +360,13 @@ module Sequel
           !new? && current_version
         end
 
-        def attributes_hold_changes?(attributes)
-          return true unless current_version?
-          @current_version_values = current_version.values
-          attributes.detect do |key, new_value|
+        def pending_version_holds_changes?
+          @current_version_values = if current_version?
+            current_version.values
+          else
+            {}
+          end
+          res = pending_version.values.detect do |key, new_value|
             case key
             when :id, :master_id, :created_at, :expired_at
               false
@@ -393,6 +387,8 @@ module Sequel
               current_version.send(key)!=new_value
             end
           end
+          raise "pending_version_holds_changes?: #{res}"
+          res
         end
 
         def excluded_columns
@@ -403,4 +399,3 @@ module Sequel
     end
   end
 end
-

@@ -11,16 +11,16 @@ describe "Sequel::Plugins::Bitemporal" do
   after do
     Timecop.return
   end
-  it "checks version class is given" do
-    lambda{
-      @version_class.plugin :bitemporal
-    }.should raise_error Sequel::Error, "please specify version class to use for bitemporal plugin"
-  end
-  it "checks required columns are present" do
-    lambda{
-      @version_class.plugin :bitemporal, version_class: @master_class
-    }.should raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
-  end
+  # it "checks version class is given" do
+  #   lambda{
+  #     @version_class.plugin :bitemporal
+  #   }.should raise_error Sequel::Error, "please specify version class to use for bitemporal plugin"
+  # end
+  # it "checks required columns are present" do
+  #   lambda{
+  #     @version_class.plugin :bitemporal, version_class: @master_class
+  #   }.should raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
+  # end
   it "propagates errors from version to master" do
     master = @master_class.new
     master.should be_valid
