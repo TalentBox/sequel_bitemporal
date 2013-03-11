@@ -1,4 +1,3 @@
-ENV["TZ"]="UTC"
 require "spec_helper"
 
 describe "Sequel::Plugins::Bitemporal" do

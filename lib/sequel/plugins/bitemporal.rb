@@ -378,12 +378,13 @@ module Sequel
           return false unless @pending_version
           return true unless current_version?
           @current_version_values = current_version.values
-          pending_version.values.detect do |key, new_value|
+          pending_version.columns.detect do |key|
+            new_value = pending_version.send key
             case key
             when :id, :master_id, :created_at, :expired_at
               false
             when :valid_from
-              new_value && (
+              pending_version.values.has_key?(:valid_from) && (
                 new_value<current_version.valid_from ||
                 (
                   current_version.valid_to &&
@@ -391,7 +392,8 @@ module Sequel
                 )
               )
             when :valid_to
-              new_value || new_value!=current_version.valid_to
+              pending_version.values.has_key?(:valid_to) &&
+                new_value!=current_version.valid_to
             else
               if model.version_uses_string_nilifier
                 new_value = nil if current_version.nil_string? key, new_value
