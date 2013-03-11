@@ -390,15 +390,21 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.attributes.should == {}
     master.pending_version.should be_nil
-    master.pending_or_current_version.should be_nil
+    master.current_version.should be_nil
+    master.name.should be_nil
+
+    master.pending_or_current_version.name.should be_nil
     master.update_attributes name: "Single Standard", price: 98
     master.attributes[:name].should == "Single Standard"
     master.pending_version.should be_nil
     master.pending_or_current_version.name.should == "Single Standard"
+    master.name.should == "Single Standard"
+
     master.attributes = {name: "King Size"}
     master.attributes[:name].should == "King Size"
     master.pending_version.should be
     master.pending_or_current_version.name.should == "King Size"
+    master.name.should == "King Size"
   end
   it "allows to go back in time" do
     master = @master_class.new

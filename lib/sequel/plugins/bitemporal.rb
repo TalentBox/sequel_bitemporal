@@ -132,11 +132,11 @@ module Sequel
           super
           pending_version.errors.each do |key, key_errors|
             key_errors.each{|error| errors.add key, error}
-          end if pending_version && !pending_version.valid?
+          end if pending_version_holds_changes? && !pending_version.valid?
         end
 
         def pending_or_current_version
-          pending_version || current_version
+          pending_version || current_version || initial_version
         end
 
         def attributes
@@ -145,22 +145,20 @@ module Sequel
           elsif current_version
             current_version.values
           else
-            {}
+            initial_version.values
           end
         end
 
         def attributes=(attributes)
-          if attributes_hold_changes? attributes
-            @pending_version ||= begin
-              current_attributes = {master_id: id}
-              current_version.keys.each do |key|
-                next if excluded_columns.include? key
-                current_attributes[key] = current_version.send key
-              end if current_version?
-              model.version_class.new current_attributes
-            end
-            pending_version.set attributes
+          @pending_version ||= begin
+            current_attributes = {master_id: id}
+            current_version.keys.each do |key|
+              next if excluded_columns.include? key
+              current_attributes[key] = current_version.send key
+            end if current_version?
+            model.version_class.new current_attributes
           end
+          pending_version.set attributes
         end
 
         def update_attributes(attributes={})
@@ -170,13 +168,13 @@ module Sequel
 
         def after_create
           super
-          if pending_version
+          if pending_version_holds_changes?
             return false unless save_pending_version
           end
         end
 
         def before_update
-          if pending_version
+          if pending_version_holds_changes?
             expire_previous_versions
             return false unless save_pending_version
           end
@@ -249,13 +247,14 @@ module Sequel
           @last_version = nil
           @current_version_values = nil
           @pending_version = nil
+          @initial_version = nil
           super
         end
 
       private
 
         def prepare_pending_version
-          return unless pending_version
+          return unless pending_version_holds_changes?
           now = ::Sequel::Plugins::Bitemporal.now
           point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
           pending_version.created_at = point_in_time
@@ -369,10 +368,11 @@ module Sequel
           !new? && current_version
         end
 
-        def attributes_hold_changes?(attributes)
+        def pending_version_holds_changes?
+          return false unless pending_version
           return true unless current_version?
           @current_version_values = current_version.values
-          attributes.detect do |key, new_value|
+          pending_version.values.detect do |key, new_value|
             case key
             when :id, :master_id, :created_at, :expired_at
               false
@@ -397,6 +397,10 @@ module Sequel
 
         def excluded_columns
           Sequel::Plugins::Bitemporal.bitemporal_excluded_columns
+        end
+
+        def initial_version
+          @initial_version ||= model.version_class.new
         end
 
       end
