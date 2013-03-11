@@ -166,9 +166,15 @@ module Sequel
           save(raise_on_failure: false) && self
         end
 
+        def before_create
+          @create_version = pending_version_holds_changes?
+          super
+        end
+
         def after_create
           super
-          if pending_version_holds_changes?
+          if @create_version
+            @create_version = nil
             return false unless save_pending_version
           end
         end
@@ -369,7 +375,7 @@ module Sequel
         end
 
         def pending_version_holds_changes?
-          return false unless pending_version
+          return false unless @pending_version
           return true unless current_version?
           @current_version_values = current_version.values
           pending_version.values.detect do |key, new_value|
