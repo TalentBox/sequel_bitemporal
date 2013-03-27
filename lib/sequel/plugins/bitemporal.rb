@@ -239,8 +239,10 @@ module Sequel
         def restore(attrs={})
           return false unless deleted?
           last_version_attributes = if last_version
-            last_version.values.reject do |column, _|
-              excluded_columns.include? column
+            last_version.columns.each_with_object({}) do |column, hash|
+              unless excluded_columns.include? column
+                hash[column] = last_version.send column
+              end
             end
           else
             {}

@@ -34,4 +34,10 @@ describe "Sequel::Plugins::Bitemporal" do
     subject.attributes = {name: {"test" => 0}}
     lambda{ subject.save }.should change(@version_class, :count).by 1
   end
+  it "does allow to restore" do
+    subject.current_version.destroy
+    subject.reload
+    lambda{ subject.restore }.should change(@version_class, :count).by 1
+    subject.name.should == {"test" => 1}
+  end
 end
