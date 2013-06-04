@@ -79,8 +79,8 @@ module Sequel
         end) do |ds|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           n = ::Sequel::Plugins::Bitemporal.now
-          if model.use_ranges
-            ds.where(model.existence_range_contains(t) & model.validity_range_contains(n))
+          if master.use_ranges
+            ds.where(master.existence_range_contains(t) & master.validity_range_contains(n))
           else
             ds.where do
               (created_at <= t) &
@@ -112,8 +112,8 @@ module Sequel
         end) do |ds|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           n = ::Sequel::Plugins::Bitemporal.now
-          if model.use_ranges
-            existence_conditions = model.existence_range_contains t, j
+          if master.use_ranges
+            existence_conditions = master.existence_range_contains t, j
             ds.where{ existence_conditions & (:valid_to > n) }
           else
             ds.where do
