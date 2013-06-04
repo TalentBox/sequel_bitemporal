@@ -6,3 +6,6 @@ env:
   - PG=1
 notifications:
   disabled: true
+matrix:
+  allow_failures:
+    - env: PG=1
