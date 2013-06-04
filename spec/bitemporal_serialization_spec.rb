@@ -2,7 +2,6 @@ require "spec_helper"
 require "json"
 
 describe "Sequel::Plugins::Bitemporal" do
-  include DbHelpers
   before :all do
     db_setup
     @version_class.instance_eval do

@@ -2,7 +2,6 @@ require "spec_helper"
 
 describe "Sequel::Plugins::Bitemporal" do
   let(:hour){ 3600 }
-  include DbHelpers
   before :all do
     db_setup use_time: true
   end
@@ -359,17 +358,17 @@ describe "Sequel::Plugins::Bitemporal" do
     Timecop.freeze Time.now+1*hour
     master.update_attributes name: "Single Standard", price: 99
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-    res = @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate & {price: 99}).all.first
+    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 99}).all.first
     res.should be
     res.current_or_future_versions.should have(1).item
     res.current_or_future_versions.first.price.should == 99
-    res = @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate & {price: 94}).all.first
+    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 94}).all.first
     res.should be
     res.current_or_future_versions.should have(1).item
     res.current_or_future_versions.first.price.should == 94
     Timecop.freeze Time.now+1*hour
     master.destroy
-    @master_class.eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate).all.should be_empty
+    @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all.should be_empty
   end
   it "allows loading masters with current or future versions" do
     master_destroyed = @master_class.new
@@ -383,7 +382,6 @@ describe "Sequel::Plugins::Bitemporal" do
   end
 end
 describe "Sequel::Plugins::Bitemporal", "with audit" do
-  include DbHelpers
   before :all do
     @audit_class = Class.new
     db_setup use_time: true, audit_class: @audit_class
@@ -438,7 +436,6 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
 end
 
 describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the author" do
-  include DbHelpers
   before :all do
     @audit_class = Class.new
     db_setup use_time: true, audit_class: @audit_class, audit_updated_by_method: :author

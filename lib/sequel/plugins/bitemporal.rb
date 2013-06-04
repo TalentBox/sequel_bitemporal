@@ -53,33 +53,80 @@ module Sequel
           @audit_updated_by_method = opts.fetch(:audit_updated_by_method){ :updated_by }
           @propagate_per_column = opts.fetch(:propagate_per_column, false)
           @version_uses_string_nilifier = version.plugins.map(&:to_s).include? "Sequel::Plugins::StringNilifier"
+          @use_ranges = if opts[:ranges]
+            db = self.db
+            unless db.database_type==:postgres && db.server_version >= 90200
+              raise "Ranges require PostgreSQL 9.2"
+            end
+            true
+          else
+            false
+          end
         end
         master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
         master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           n = ::Sequel::Plugins::Bitemporal.now
-          e = :expired_at.qualify(j)
-          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_from.qualify(j) <= n) & (:valid_to.qualify(j) > n)
+          if master.use_ranges
+            master.existence_range_contains(t, j) & master.validity_range_contains(n, j)
+          else
+            e = Sequel.qualify j, :expired_at
+            (Sequel.qualify(j, :created_at) <= t) &
+            (Sequel.|({e=>nil}, e > t)) &
+            (Sequel.qualify(j, :valid_from) <= n) &
+            (Sequel.qualify(j, :valid_to) > n)
+          end
         end) do |ds|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           n = ::Sequel::Plugins::Bitemporal.now
-          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_from <= n) & (valid_to > n)}
+          if model.use_ranges
+            ds.where(model.existence_range_contains(t) & model.validity_range_contains(n))
+          else
+            ds.where do
+              (created_at <= t) &
+              (Sequel.|({expired_at=>nil}, expired_at > t)) &
+              (valid_from <= n) &
+              (valid_to > n)
+            end
+          end
         end
         master.def_dataset_method :with_current_version do
-          eager_graph(:current_version).where({:id.qualify(model.current_version_alias) => nil}.sql_negate)
+          eager_graph(:current_version).where(
+            Sequel.negate(
+              Sequel.qualify(model.current_version_alias, :id) => nil
+            )
+          )
         end
         master.one_to_many :current_or_future_versions, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           n = ::Sequel::Plugins::Bitemporal.now
-          e = :expired_at.qualify(j)
-          (:created_at.qualify(j) <= t) & ({e=>nil} | (e > t)) & (:valid_to.qualify(j) > n)
+          if master.use_ranges
+            master.existence_range_contains(t, j) &
+            (Sequel.qualify(j, :valid_to) > n)
+          else
+            e = Sequel.qualify j, :expired_at
+            (Sequel.qualify(j, :created_at) <= t) &
+            Sequel.|({e=>nil}, e > t) &
+            (Sequel.qualify(j, :valid_to) > n)
+          end
         end) do |ds|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
           n = ::Sequel::Plugins::Bitemporal.now
-          ds.where{(created_at <= t) & ({expired_at=>nil} | (expired_at > t)) & (valid_to > n)}
+          if model.use_ranges
+            existence_conditions = model.existence_range_contains t, j
+            ds.where{ existence_conditions & (:valid_to > n) }
+          else
+            ds.where do
+              (created_at <= t) &
+              Sequel.|({expired_at=>nil}, expired_at > t) &
+              (valid_to > n)
+            end
+          end
         end
         master.def_dataset_method :with_current_or_future_versions do
-          eager_graph(:current_or_future_versions).where({current_or_future_versions__id: nil}.sql_negate)
+          eager_graph(:current_or_future_versions).where(
+            Sequel.negate(current_or_future_versions__id: nil)
+          )
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
@@ -112,7 +159,75 @@ module Sequel
       module ClassMethods
         attr_reader :version_class, :versions_alias, :current_version_alias,
           :propagate_per_column, :audit_class, :audit_updated_by_method,
-          :version_uses_string_nilifier
+          :version_uses_string_nilifier, :use_ranges
+
+        def validity_range_type
+          @validity_range_type ||= begin
+            valid_from_infos = db.schema(
+              version_class.table_name
+            ).detect do |column_name, _|
+              column_name==:valid_from
+            end
+            unless valid_from_infos
+              raise "Could not find valid_from column in #{version_class.table_name}"
+            end
+            case valid_from_infos.last[:db_type]
+            when "date"
+              :daterange
+            when "timestamp without time zone"
+              :tsrange
+            when "timestamp with time zone"
+              :tstzrange
+            else
+              raise "Don't know how to handle ranges for type: #{valid_from_infos[:db_type]}"
+            end
+          end
+        end
+
+        def validity_cast_type
+          case validity_range_type
+          when :daterange
+            :date
+          when :tsrange, :tstzrange
+            :timestamp
+          else
+            raise "Don't know how to handle cast for range type: #{validity_range_type}"
+          end
+        end
+
+        def existence_range(qualifier=nil)
+          created_at_column = :created_at
+          created_at_column = Sequel.qualify qualifier, created_at_column if qualifier
+          expired_at_column = :expired_at
+          expired_at_column = Sequel.qualify qualifier, expired_at_column if qualifier
+          Sequel.function(
+            :tsrange, created_at_column, expired_at_column, "[)"
+          ).pg_range
+        end
+
+        def existence_range_contains(point_in_time, qualifier=nil)
+          existence_range(qualifier).contains(
+            Sequel.cast(point_in_time, :timestamp)
+          )
+        end
+
+        def validity_range(qualifier=nil)
+          valid_from_column = :valid_from
+          valid_from_column = Sequel.qualify qualifier, valid_from_column if qualifier
+          valid_to_column = :valid_to
+          valid_to_column = Sequel.qualify qualifier, valid_to_column if qualifier
+
+          Sequel.function(
+            validity_range_type, valid_from_column, valid_to_column, "[)"
+          ).pg_range
+        end
+
+        def validity_range_contains(now, qualifier=nil)
+          validity_range(qualifier).contains(
+            Sequel.cast(now, validity_cast_type)
+          )
+        end
+
       end
       module DatasetMethods
       end
@@ -229,10 +344,17 @@ module Sequel
             return if new?
             t = ::Sequel::Plugins::Bitemporal.point_in_time
             n = ::Sequel::Plugins::Bitemporal.now
+            if use_ranges = self.class.use_ranges
+              range_conditions = self.class.existence_range_contains t
+            end
             versions_dataset.where do
-              (created_at <= t) & ({expired_at=>nil} | (expired_at > t)) &
-              (valid_from <= n)
-            end.order(:valid_to.desc, :created_at.desc).first
+              if use_ranges
+                range_conditions
+              else
+                (created_at <= t) &
+                Sequel.|({expired_at=>nil}, expired_at > t)
+              end & (valid_from <= n)
+            end.order(Sequel.desc(:valid_to), Sequel.desc(:created_at)).first
           end
         end
 

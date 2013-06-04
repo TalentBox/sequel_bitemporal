@@ -18,6 +18,7 @@ Gem::Specification.new do |s|
   s.add_runtime_dependency "sequel", "~> 3.30"
 
   s.add_development_dependency "sqlite3"
+  s.add_development_dependency "pg"
   s.add_development_dependency "rspec", "~> 2.10.0"
   s.add_development_dependency "timecop"
   s.add_development_dependency "rake"

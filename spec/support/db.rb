@@ -1,13 +1,11 @@
 module DbHelpers
-  def self.included(klass)
-    klass.before do
-      db_truncate
-    end
+
+  def self.pg?
+    ENV.has_key? "PG"
   end
 
   def db_setup(opts={})
     use_time = opts[:use_time]
-
     DB.drop_table(:room_versions) if DB.table_exists?(:room_versions)
     DB.drop_table(:rooms) if DB.table_exists?(:rooms)
     DB.create_table! :rooms do
@@ -38,6 +36,7 @@ module DbHelpers
     bitemporal_options = {version_class: @version_class}
     bitemporal_options[:audit_class] = opts[:audit_class] if opts[:audit_class]
     bitemporal_options[:audit_updated_by_method] = opts[:audit_updated_by_method] if opts[:audit_updated_by_method]
+    bitemporal_options[:ranges] = opts[:ranges] if opts[:ranges]
 
     @master_class = Class.new Sequel::Model do
       set_dataset :rooms
@@ -46,7 +45,12 @@ module DbHelpers
   end
 
   def db_truncate
-    @version_class.truncate
-    @master_class.truncate
+    if DbHelpers.pg?
+      @version_class.truncate cascade: true
+      @master_class.truncate cascade: true
+    else
+      @version_class.truncate
+      @master_class.truncate
+    end
   end
 end
