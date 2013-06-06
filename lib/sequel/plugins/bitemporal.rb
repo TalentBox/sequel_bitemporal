@@ -520,7 +520,11 @@ module Sequel
                 new_value!=current_version.valid_to
             else
               if model.version_uses_string_nilifier
-                new_value = nil if current_version.nil_string? key, new_value
+                if current_version.respond_to? :nil_string?
+                  new_value = nil if current_version.nil_string? key, new_value
+                elsif !model.version_class.skip_input_transformer?(:string_nilifier, key)
+                  new_value = model.version_class.input_transformers[:string_nilifier].call(new_value)
+                end
               end
               current_version.send(key)!=new_value
             end
