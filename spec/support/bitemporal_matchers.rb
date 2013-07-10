@@ -4,11 +4,12 @@ RSpec::Matchers.define :have_versions do |versions_str|
   @last_version = nil
   match do |master|
     versions = master.versions_dataset.order(:id).all
+    columns = @table.first.keys.collect &:to_sym
     versions.size == @table.size && @table.each.with_index.all? do |version, index|
       @last_index = index
       @last_version = version
       master_version = versions[index]
-      [:name, :price, :valid_from, :valid_to, :created_at, :expired_at, :current].all? do |column|
+      columns.all? do |column|
         if column==:current
           found = master_version.current?
           expected = (version[column.to_s]=="true").to_s
