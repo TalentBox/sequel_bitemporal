@@ -360,7 +360,7 @@ describe "Sequel::Plugins::Bitemporal" do
         | Single Standard | 12    | 1      | 1     | 2009-11-30 | 2009-12-01 | 2009-12-01 | 2009-12-02 |         |
         | Single Standard | 12    |        | 1     | 2009-12-01 |            | 2009-11-28 | 2009-11-30 |         |
         | Single Standard | 12    | 3      | 4     | 2009-12-01 |            | 2009-11-30 | 2009-12-01 |         |
-        | Single Standard | 12    | 1      | 4     | 2009-12-01 |            | 2009-12-01 | 2009-12-02 |         |
+        | Single Standard | 12    | 3      | 4     | 2009-12-01 |            | 2009-12-01 | 2009-12-02 |         |
       }
     ensure
       @master_class.instance_variable_set :@propagate_per_column, propagate_per_column
