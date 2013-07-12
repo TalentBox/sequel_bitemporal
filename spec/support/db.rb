@@ -53,6 +53,10 @@ module DbHelpers
         send(use_time ? :Time : :Date, :name_at)
         integer     :price_u_user_id
         send(use_time ? :Time : :Date, :price_at)
+        integer     :length_u_user_id
+        send(use_time ? :Time : :Date, :length_at)
+        integer     :width_u_user_id
+        send(use_time ? :Time : :Date, :width_at)
         send(use_time ? :Time : :Date, :created_at)
         send(use_time ? :Time : :Date, :expired_at)
         send(use_time ? :Time : :Date, :valid_from)
