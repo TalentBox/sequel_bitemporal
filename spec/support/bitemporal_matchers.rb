@@ -21,6 +21,8 @@ RSpec::Matchers.define :have_versions do |versions_str|
             expected = "9999-01-01"
           when "MAX TIME"
             expected = "9999-01-01 00:00:00 +0000"
+          when "MIN DATE"
+            expected = "1000-01-01"
           end
         end
         equal = found.to_s == expected
