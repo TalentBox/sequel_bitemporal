@@ -755,20 +755,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
     )
     master.update_attributes name: "Single Standard", price: 98
   end
-  it "generates a new audit on full update" do
-    master = @master_class.new
-    master.should_receive(:author).twice.and_return author
-    master.update_attributes name: "Single Standard", price: 98
-    @audit_class.should_receive(:audit).with(
-      master,
-      hash_including({name: "Single Standard", price: 98}),
-      hash_including({name: "King size", price: 98}),
-      Date.today,
-      author
-    )
-    master.update_attributes name: "King size", price: 98
-  end
-  it "generates a new audit on partial update" do
+  it "generates a new audit on update" do
     master = @master_class.new
     master.should_receive(:author).twice.and_return author
     master.update_attributes name: "Single Standard", price: 98
