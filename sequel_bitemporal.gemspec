@@ -3,12 +3,13 @@ $:.push File.expand_path("../lib", __FILE__)
 
 Gem::Specification.new do |s|
   s.name        = "sequel_bitemporal"
-  s.version     = "0.6.15"
+  s.version     = "0.6.16"
   s.authors     = ["Joseph HALTER", "Jonathan TRON"]
   s.email       = ["joseph.halter@thetalentbox.com", "jonathan.tron@thetalentbox.com"]
   s.homepage    = "https://github.com/TalentBox/sequel_bitemporal"
   s.summary     = "Bitemporal versioning for sequel."
   s.description = "Bitemporal versioning for sequel, fully tested."
+  s.license     = "MIT"
 
   s.files         = `git ls-files`.split("\n")
   s.test_files    = `git ls-files -- {test,spec,features}/*`.split("\n")
