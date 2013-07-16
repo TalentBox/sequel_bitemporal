@@ -405,6 +405,24 @@ describe "Sequel::Plugins::Bitemporal" do
     master.pending_or_current_version.name.should == "King Size"
     master.name.should == "King Size"
   end
+  it "allows creating a new version before all other versions in case of propagation per column" do
+    propagate_per_column = @master_class.propagate_per_column
+    begin
+      @master_class.instance_variable_set :@propagate_per_column, true
+      master = @master_class.new
+      master.update_attributes name: "Single Standard", price: 98
+      Timecop.freeze Date.today - 100 do
+        master.update_attributes name: "Single Standard", price: 95
+      end
+      master.should have_versions %Q{
+        | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+        | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
+        | Single Standard | 95    | 2009-08-20 |            | 2009-08-20 | 2009-11-28 |         |
+      }
+    ensure
+      @master_class.instance_variable_set :@propagate_per_column, propagate_per_column
+    end
+  end
   it "allows to go back in time" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+1
