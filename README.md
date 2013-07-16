@@ -44,4 +44,4 @@ Build Status
 License
 -------
 
-sequel_bitemporal is Copyright © 2013 TalentBox SA. It is free software, and may be redistributed under the terms specified in the LICENSE file.
+sequel_bitemporal is Copyright © 2011 TalentBox SA. It is free software, and may be redistributed under the terms specified in the LICENSE file.
