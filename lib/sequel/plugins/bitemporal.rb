@@ -423,7 +423,7 @@ module Sequel
 
           to_check_columns = self.class.version_class.columns - excluded_columns
           updated_by = (send(self.class.audit_updated_by_method) if audited?)
-          previous_values = @current_version_values
+          previous_values = @current_version_values || {}
           current_version_values = pending_version.values
 
           futures.each do |future_version|
