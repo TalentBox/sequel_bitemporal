@@ -130,10 +130,12 @@ module Sequel
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
-          if self.db.database_type==:postgres
-            add_pg_typecast_on_load_columns *columns
-          else
-            add_typecast_on_load_columns *columns
+          if Sequel::Plugins::Bitemporal.jruby?
+            if self.db.database_type==:postgres
+              add_pg_typecast_on_load_columns *columns
+            else
+              add_typecast_on_load_columns *columns
+            end
           end
           def current?
             t = ::Sequel::Plugins::Bitemporal.point_in_time
