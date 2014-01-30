@@ -44,6 +44,13 @@ module Sequel
         raise Error, "please specify version class to use for bitemporal plugin" unless version
         missing = bitemporal_version_columns - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
+
+        if Sequel::Plugins::Bitemporal.pg_jdbc?(master.db)
+          master.plugin :pg_typecast_on_load, *master.columns
+        elsif Sequel::Plugins::Bitemporal.jdbc?(master.db)
+          master.plugin :typecast_on_load, *master.columns
+        end
+
         master.instance_eval do
           @version_class = version
           base_alias = name ? underscore(demodulize(name)) : table_name
@@ -130,6 +137,12 @@ module Sequel
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
+          if Sequel::Plugins::Bitemporal.pg_jdbc?(db)
+            plugin :pg_typecast_on_load, *columns
+          elsif Sequel::Plugins::Bitemporal.jdbc?(master.db)
+            plugin :typecast_on_load, *columns
+          end
+
           def current?
             t = ::Sequel::Plugins::Bitemporal.point_in_time
             n = ::Sequel::Plugins::Bitemporal.now
@@ -273,12 +286,17 @@ module Sequel
             end if current_version?
             model.version_class.new current_attributes
           end
-          pending_version.set attributes
+          pending_version.set_all attributes
         end
 
         def update_attributes(attributes={})
           self.attributes = attributes
-          save(raise_on_failure: false) && self
+          if save raise_on_failure: false
+            _refresh_set_values @values
+            self
+          else
+            false
+          end
         end
 
         def before_create
@@ -478,19 +496,25 @@ module Sequel
 
         def save_fossil(expired, attributes={})
           fossil = model.version_class.new
-          expired_attributes = expired.values.dup
+          expired_attributes = expired.keys.each_with_object({}) do |key, hash|
+            hash[key] = expired.send key
+          end
           expired_attributes.delete :id
-          fossil.send :set_values, expired_attributes.merge(attributes)
+          fossil.set_all expired_attributes.merge(attributes)
           fossil.save validate: false
+          fossil.send :_refresh_set_values, fossil.values
         end
 
         def save_propagated(version, attributes={})
           propagated = model.version_class.new
-          version_attributes = version.values.dup
+          version_attributes = version.keys.each_with_object({}) do |key, hash|
+            hash[key] = version.send key
+          end
           version_attributes.delete :id
           version_attributes[:created_at] = Sequel::Plugins::Bitemporal.point_in_time
-          propagated.send :set_values, version_attributes.merge(attributes)
+          propagated.set_all version_attributes.merge(attributes)
           propagated.save validate: false
+          propagated.send :_refresh_set_values, propagated.values
           propagated
         end
 
