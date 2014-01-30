@@ -4,6 +4,10 @@ module DbHelpers
     ENV.has_key? "PG"
   end
 
+  def self.jruby?
+    (defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby') || defined?(JRUBY_VERSION)
+  end
+
   def db_setup(opts={})
     use_time = opts[:use_time]
     DB.drop_table(:room_versions) if DB.table_exists?(:room_versions)

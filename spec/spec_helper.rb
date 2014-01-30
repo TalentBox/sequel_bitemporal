@@ -8,9 +8,19 @@ ENV["TZ"]="UTC"
 DB = if DbHelpers.pg?
   `createdb sequel_bitemporal_test`
   Sequel.extension :pg_range, :pg_range_ops
-  Sequel.postgres "sequel_bitemporal_test"
+  if DbHelpers.jruby?
+    Sequel::Model.plugin :pg_typecast_on_load
+    Sequel.connect "jdbc:postgresql://localhost/sequel_bitemporal_test"
+  else
+    Sequel.postgres "sequel_bitemporal_test"
+  end
 else
-  Sequel.sqlite
+  if DbHelpers.jruby?
+    Sequel::Model.plugin :typecast_on_load
+    Sequel.connect "jdbc:sqlite::memory:"
+  else
+    Sequel.sqlite
+  end
 end
 
 if ENV["DEBUG"]
