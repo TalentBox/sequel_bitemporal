@@ -1,6 +1,8 @@
 sequel_bitemporal
 =================
 
+[![Build Status](https://travis-ci.org/TalentBox/sequel_bitemporal.png?branch=master)](https://travis-ci.org/TalentBox/sequel_bitemporal)
+
 Bitemporal versioning for sequel.
 
 Dependencies
@@ -35,11 +37,6 @@ Usage
         price.current_version
 
 * Look at the specs for more usage patterns.
-
-Build Status
-------------
-
-[![Build Status](https://travis-ci.org/TalentBox/sequel_bitemporal.png?branch=master)](https://travis-ci.org/TalentBox/sequel_bitemporal)
 
 License
 -------
