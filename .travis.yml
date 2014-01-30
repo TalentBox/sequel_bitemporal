@@ -7,11 +7,5 @@ rvm:
 env:
   - SQLITE=1
   - PG=1
-matrix:
-  exclude:
-    - rvm: jruby-19mode
-      env: SQLITE=1
-    - rvm: jruby-20mode
-      env: SQLITE=1
 addons:
   postgresql: 9.2

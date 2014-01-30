@@ -44,6 +44,13 @@ module Sequel
         raise Error, "please specify version class to use for bitemporal plugin" unless version
         missing = bitemporal_version_columns - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
+
+        if Sequel::Plugins::Bitemporal.pg_jdbc?(master.db)
+          master.plugin :pg_typecast_on_load, *master.columns
+        elsif Sequel::Plugins::Bitemporal.jdbc?(master.db)
+          master.plugin :typecast_on_load, *master.columns
+        end
+
         master.instance_eval do
           @version_class = version
           base_alias = name ? underscore(demodulize(name)) : table_name
@@ -130,13 +137,12 @@ module Sequel
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
-          if Sequel::Plugins::Bitemporal.jruby?
-            if self.db.database_type==:postgres
-              add_pg_typecast_on_load_columns *columns
-            else
-              add_typecast_on_load_columns *columns
-            end
+          if Sequel::Plugins::Bitemporal.pg_jdbc?(db)
+            plugin :pg_typecast_on_load, *columns
+          elsif Sequel::Plugins::Bitemporal.jdbc?(master.db)
+            plugin :typecast_on_load, *columns
           end
+
           def current?
             t = ::Sequel::Plugins::Bitemporal.point_in_time
             n = ::Sequel::Plugins::Bitemporal.now
