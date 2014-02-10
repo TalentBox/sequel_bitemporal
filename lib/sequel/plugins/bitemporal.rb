@@ -292,7 +292,6 @@ module Sequel
         def update_attributes(attributes={})
           self.attributes = attributes
           if save raise_on_failure: false
-            _refresh_set_values @values
             self
           else
             false
@@ -318,6 +317,11 @@ module Sequel
             return false unless save_pending_version
           end
           super
+        end
+
+        def after_save
+          super
+          _refresh_set_values @values
         end
 
         def destroy
