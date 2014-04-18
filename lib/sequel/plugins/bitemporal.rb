@@ -279,7 +279,7 @@ module Sequel
 
         def attributes=(attributes)
           @pending_version ||= begin
-            current_attributes = {master_id: id}
+            current_attributes = version_base_attributes
             current_version.keys.each do |key|
               next if excluded_columns.include? key
               current_attributes[key] = current_version.send key
@@ -565,6 +565,10 @@ module Sequel
 
         def initial_version
           @initial_version ||= model.version_class.new
+        end
+
+        def version_base_attributes
+          {master_id: id}
         end
 
       end
