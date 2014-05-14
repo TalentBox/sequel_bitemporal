@@ -392,7 +392,7 @@ if DbHelpers.pg?
     after do
       Timecop.return
     end
-    let(:author){ mock :author, audit_kind: "user" }
+    let(:author){ double :author, audit_kind: "user" }
     it "generates a new audit on creation" do
       master = @master_class.new
       master.should_receive(:updated_by).and_return author
@@ -451,7 +451,7 @@ if DbHelpers.pg?
     after do
       Timecop.return
     end
-    let(:author){ mock :author, audit_kind: "user" }
+    let(:author){ double :author, audit_kind: "user" }
     it "generates a new audit on creation" do
       master = @master_class.new
       master.should_receive(:author).and_return author

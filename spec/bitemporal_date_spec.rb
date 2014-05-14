@@ -344,12 +344,15 @@ describe "Sequel::Plugins::Bitemporal" do
       initial_today = Date.today
       Timecop.freeze initial_today+1 do
         master.update_attributes valid_from: initial_today+4, name: "King Size", price: 15, length: 2, width: 2
+        master.propagated_during_last_save.should have(0).item
       end
       Timecop.freeze initial_today+2 do
         master.update_attributes valid_from: initial_today+3, length: 1, width: 1
+        master.propagated_during_last_save.should have(0).item
       end
       Timecop.freeze initial_today+3 do
         master.update_attributes valid_from: initial_today+2, length: 3, width: 4
+        master.propagated_during_last_save.should have(1).item
       end
       master.should have_versions %Q{
         | name            | price | length | width | created_at | expired_at | valid_from | valid_to   | current |
@@ -413,6 +416,7 @@ describe "Sequel::Plugins::Bitemporal" do
       master.update_attributes name: "Single Standard", price: 98
       Timecop.freeze Date.today - 100 do
         master.update_attributes name: "Single Standard", price: 95
+        master.propagated_during_last_save.should have(0).item
       end
       master.should have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
@@ -665,7 +669,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
   after do
     Timecop.return
   end
-  let(:author){ mock :author, audit_kind: "user" }
+  let(:author){ double :author, audit_kind: "user" }
   it "generates a new audit on creation" do
     master = @master_class.new
     master.should_receive(:updated_by).and_return author
@@ -716,11 +720,13 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
       Timecop.freeze initial_today+1 do
         Sequel::Plugins::Bitemporal.at initial_today+4 do
           master.update_attributes valid_from: initial_today+4, name: "King Size", price: 15, length: 2, width: 2
+          master.propagated_during_last_save.should have(0).item
         end
       end
       Timecop.freeze initial_today+2 do
         Sequel::Plugins::Bitemporal.at initial_today+3 do
           master.update_attributes valid_from: initial_today+3, length: 1, width: 1
+          master.propagated_during_last_save.should have(0).item
         end
       end
       @audit_class.should_receive(:audit).with(
@@ -740,6 +746,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
       Timecop.freeze initial_today+3 do
         Sequel::Plugins::Bitemporal.at initial_today+2 do
           master.update_attributes valid_from: initial_today+2, length: 3, width: 4
+          master.propagated_during_last_save.should have(1).item
         end
       end
     ensure
@@ -754,7 +761,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
     end
     db_setup audit_class: @audit_class, audit_updated_by_method: :author
   end
-  let(:author){ mock :author, audit_kind: "user" }
+  let(:author){ double :author, audit_kind: "user" }
   before do
     Timecop.freeze 2009, 11, 28
   end

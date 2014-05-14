@@ -403,6 +403,10 @@ module Sequel
           super
         end
 
+        def propagated_during_last_save
+          @propagated_during_last_save ||= []
+        end
+
       private
 
         def prepare_pending_version
@@ -436,6 +440,7 @@ module Sequel
 
         def propagate_changes_to_future_versions
           return true unless self.class.propagate_per_column
+          @propagated_during_last_save = []
           lock!
           futures = versions_dataset.where expired_at: nil
           futures = futures.exclude "valid_from=valid_to"
@@ -519,6 +524,7 @@ module Sequel
           propagated.set_all version_attributes.merge(attributes)
           propagated.save validate: false
           propagated.send :_refresh_set_values, propagated.values
+          propagated_during_last_save << propagated
           propagated
         end
 
