@@ -333,6 +333,7 @@ module Sequel
           now = ::Sequel::Plugins::Bitemporal.now
           point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
           return false if version.valid_to.to_datetime<=now
+          associations.delete :current_version
           model.db.transaction do
             success = true
             version_was_valid = now>=version.valid_from.to_datetime

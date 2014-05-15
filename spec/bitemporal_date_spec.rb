@@ -233,6 +233,7 @@ describe "Sequel::Plugins::Bitemporal" do
       | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 | MAX DATE   |         |
       | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
     }
+    master.should be_deleted
   end
   it "allows deleting current version to restore the previous one" do
     master = @master_class.new
