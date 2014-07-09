@@ -70,6 +70,18 @@ module Sequel
             false
           end
         end
+        master.class_eval do
+          def self.current_versions_dataset
+            t = ::Sequel::Plugins::Bitemporal.point_in_time
+            n = ::Sequel::Plugins::Bitemporal.now
+            version_class.where do
+              (created_at <= t) &
+              (Sequel.|({expired_at=>nil}, expired_at > t)) &
+              (valid_from <= n) &
+              (valid_to > n)
+            end
+          end
+        end
         master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
         master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
           t = ::Sequel::Plugins::Bitemporal.point_in_time
@@ -578,4 +590,3 @@ module Sequel
     end
   end
 end
-

@@ -20,6 +20,14 @@ describe "Sequel::Plugins::Bitemporal" do
       @version_class.plugin :bitemporal, version_class: @master_class
     }.should raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
   end
+  it "defines current_versions_dataset" do
+    @master_class.new.
+      update_attributes(name: "Single Standard", price: 98).
+      update_attributes(name: "King Size")
+    versions = @master_class.current_versions_dataset.all
+    versions.should have(1).version
+    versions[0].name.should == "King Size"
+  end
   it "propagates errors from version to master" do
     master = @master_class.new
     master.should be_valid
