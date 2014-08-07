@@ -528,6 +528,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.name.should == "Single Standard"
     master.attributes = {name: "King Size"}
     master.name.should == "King Size"
+    master.price.should == 98
   end
   it "avoids delegation with option delegate: false" do
     closure = @version_class
@@ -536,7 +537,20 @@ describe "Sequel::Plugins::Bitemporal" do
       plugin :bitemporal, version_class: closure, delegate: false
     end
     master = without_delegation_class.new
+    master.attributes = {name: "Single Standard", price: 98}
     expect{ master.name }.to raise_error NoMethodError
+    expect{ master.price }.to raise_error NoMethodError
+  end
+  it "avoids delegation of some columns only with option excluded_columns" do
+    closure = @version_class
+    without_delegation_class = Class.new Sequel::Model do
+      set_dataset :rooms
+      plugin :bitemporal, version_class: closure, excluded_columns: [:name]
+    end
+    master = without_delegation_class.new
+    master.attributes = {name: "Single Standard", price: 98}
+    expect{ master.name }.to raise_error NoMethodError
+    master.price.should == 98
   end
   it "get current_version association name from class name" do
     class MyNameVersion < Sequel::Model

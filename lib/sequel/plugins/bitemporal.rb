@@ -60,6 +60,8 @@ module Sequel
           @audit_updated_by_method = opts.fetch(:audit_updated_by_method){ :updated_by }
           @propagate_per_column = opts.fetch(:propagate_per_column, false)
           @version_uses_string_nilifier = version.plugins.map(&:to_s).include? "Sequel::Plugins::StringNilifier"
+          @excluded_columns = Sequel::Plugins::Bitemporal.bitemporal_excluded_columns
+          @excluded_columns += opts[:excluded_columns] if opts[:excluded_columns]
           @use_ranges = if opts[:ranges]
             db = self.db
             unless db.database_type==:postgres && db.server_version >= 90200
@@ -172,7 +174,7 @@ module Sequel
           end
         end
         unless opts[:delegate]==false
-          (version.columns-bitemporal_version_columns-[:id]).each do |column|
+          (version.columns-master.excluded_columns).each do |column|
             master.class_eval <<-EOS
               def #{column}
                 pending_or_current_version.#{column} if pending_or_current_version
@@ -184,7 +186,7 @@ module Sequel
       module ClassMethods
         attr_reader :version_class, :versions_alias, :current_version_alias,
           :propagate_per_column, :audit_class, :audit_updated_by_method,
-          :version_uses_string_nilifier, :use_ranges
+          :version_uses_string_nilifier, :use_ranges, :excluded_columns
 
         def validity_range_type
           @validity_range_type ||= begin
@@ -252,7 +254,6 @@ module Sequel
             Sequel.cast(now, validity_cast_type)
           )
         end
-
       end
       module DatasetMethods
       end
@@ -579,7 +580,7 @@ module Sequel
         end
 
         def excluded_columns
-          Sequel::Plugins::Bitemporal.bitemporal_excluded_columns
+          self.class.excluded_columns
         end
 
         def initial_version
