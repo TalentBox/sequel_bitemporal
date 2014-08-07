@@ -552,6 +552,22 @@ describe "Sequel::Plugins::Bitemporal" do
     expect{ master.name }.to raise_error NoMethodError
     master.price.should == 98
   end
+  it "avoids delegation of columns which are both in master and version" do
+    closure = @version_class
+    DB.create_table! :rooms_with_name do
+      primary_key :id
+      String      :name
+    end
+    without_delegation_class = Class.new Sequel::Model do
+      set_dataset :rooms_with_name
+      plugin :bitemporal, version_class: closure
+    end
+    master = without_delegation_class.new name: "Master Hotel"
+    master.attributes = {name: "Single Standard", price: 98}
+    master.name.should == "Master Hotel"
+    master.price.should == 98
+    DB.drop_table :rooms_with_name
+  end
   it "get current_version association name from class name" do
     class MyNameVersion < Sequel::Model
       set_dataset :room_versions
