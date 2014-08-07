@@ -61,7 +61,7 @@ module Sequel
           @propagate_per_column = opts.fetch(:propagate_per_column, false)
           @version_uses_string_nilifier = version.plugins.map(&:to_s).include? "Sequel::Plugins::StringNilifier"
           @excluded_columns = Sequel::Plugins::Bitemporal.bitemporal_excluded_columns
-          @excluded_columns += opts[:excluded_columns] if opts[:excluded_columns]
+          @excluded_columns += Array opts[:excluded_columns] if opts[:excluded_columns]
           @use_ranges = if opts[:ranges]
             db = self.db
             unless db.database_type==:postgres && db.server_version >= 90200
