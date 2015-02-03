@@ -378,7 +378,7 @@ describe "Sequel::Plugins::Bitemporal" do
       @master_class.instance_variable_set :@propagate_per_column, propagate_per_column
     end
   end
-  it "allows eager loading with conditions on current version" do
+  it "allows eager graphing with conditions on current version" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
@@ -386,6 +386,14 @@ describe "Sequel::Plugins::Bitemporal" do
     Timecop.freeze Date.today+1
     master.destroy
     @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be_nil
+  end
+  it "allows eager loading via a separate query" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+    result = @master_class.eager(:current_version).all.first
+    result.associations[:current_version].should_not be_nil
+    result.current_version.price.should == 98
   end
   it "allows loading masters with a current version" do
     master_destroyed = @master_class.new
