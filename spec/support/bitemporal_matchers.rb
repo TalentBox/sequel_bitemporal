@@ -1,13 +1,13 @@
 RSpec::Matchers.define :have_versions do |versions_str|
-  @table = have_versions_parse_table versions_str
-  @last_index = nil
-  @last_version = nil
+  table = have_versions_parse_table versions_str
+  last_index = nil
+  last_version = nil
   match do |master|
     versions = master.versions_dataset.order(:id).all
-    columns = @table.first.keys.collect &:to_sym
-    versions.size == @table.size && @table.each.with_index.all? do |version, index|
-      @last_index = index
-      @last_version = version
+    columns = table.first.keys.collect(&:to_sym)
+    versions.size == table.size && table.each.with_index.all? do |version, index|
+      last_index = index
+      last_version = version
       master_version = versions[index]
       columns.all? do |column|
         if column==:current
@@ -29,12 +29,12 @@ RSpec::Matchers.define :have_versions do |versions_str|
       end
     end
   end
-  failure_message_for_should do |master|
+  failure_message do |master|
     versions = master.versions_dataset.order(:id).all
-    if versions.size != @table.size
-      "Expected #{master.class} to have #{@table.size} versions but found #{versions.size}"
+    if versions.size != table.size
+      "Expected #{master.class} to have #{table.size} versions but found #{versions.size}"
     else
-      "Expected row #{@last_index+1} to match #{@last_version.inspect} but found #{versions[@last_index].inspect}"
+      "Expected row #{last_index+1} to match #{last_version.inspect} but found #{versions[last_index].inspect}"
     end
   end
 end

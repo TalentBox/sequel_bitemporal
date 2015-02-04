@@ -86,10 +86,11 @@ module Sequel
         end
         master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
         master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
-          t = ::Sequel::Plugins::Bitemporal.point_in_time
-          n = ::Sequel::Plugins::Bitemporal.now
+          t = Sequel.delay{ ::Sequel::Plugins::Bitemporal.point_in_time }
+          n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
-            master.existence_range_contains(t, j) & master.validity_range_contains(n, j)
+            master.existence_range_contains(t, j) &
+            master.validity_range_contains(n, j)
           else
             e = Sequel.qualify j, :expired_at
             (Sequel.qualify(j, :created_at) <= t) &
@@ -98,8 +99,8 @@ module Sequel
             (Sequel.qualify(j, :valid_to) > n)
           end
         end) do |ds|
-          t = ::Sequel::Plugins::Bitemporal.point_in_time
-          n = ::Sequel::Plugins::Bitemporal.now
+          t = Sequel.delay{ ::Sequel::Plugins::Bitemporal.point_in_time }
+          n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
             ds.where(master.existence_range_contains(t) & master.validity_range_contains(n))
           else
@@ -119,8 +120,8 @@ module Sequel
           )
         end
         master.one_to_many :current_or_future_versions, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
-          t = ::Sequel::Plugins::Bitemporal.point_in_time
-          n = ::Sequel::Plugins::Bitemporal.now
+          t = Sequel.delay{ ::Sequel::Plugins::Bitemporal.point_in_time }
+          n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
             master.existence_range_contains(t, j) &
             (Sequel.qualify(j, :valid_to) > n)
@@ -131,10 +132,10 @@ module Sequel
             (Sequel.qualify(j, :valid_to) > n)
           end
         end) do |ds|
-          t = ::Sequel::Plugins::Bitemporal.point_in_time
-          n = ::Sequel::Plugins::Bitemporal.now
+          t = Sequel.delay{ ::Sequel::Plugins::Bitemporal.point_in_time }
+          n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
-            existence_conditions = master.existence_range_contains t, j
+            existence_conditions = master.existence_range_contains t
             ds.where{ existence_conditions & (:valid_to > n) }
           else
             ds.where do
@@ -151,7 +152,7 @@ module Sequel
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
-          if Sequel::Plugins::Bitemporal.pg_jdbc?(db)
+          if Sequel::Plugins::Bitemporal.pg_jdbc?(master.db)
             plugin :pg_typecast_on_load, *columns
           elsif Sequel::Plugins::Bitemporal.jdbc?(master.db)
             plugin :typecast_on_load, *columns

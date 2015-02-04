@@ -11,36 +11,36 @@ if DbHelpers.pg?
       Timecop.return
     end
     it "checks version class is given" do
-      lambda{
+      expect{
         @version_class.plugin :bitemporal
-      }.should raise_error Sequel::Error, "please specify version class to use for bitemporal plugin"
+      }.to raise_error Sequel::Error, "please specify version class to use for bitemporal plugin"
     end
     it "checks required columns are present" do
-      lambda{
+      expect{
         @version_class.plugin :bitemporal, version_class: @master_class
-      }.should raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
+      }.to raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
     end
     it "propagates errors from version to master" do
       master = @master_class.new
-      master.should be_valid
+      expect(master).to be_valid
       master.attributes = {name: "Single Standard"}
-      master.should_not be_valid
-      master.errors.should == {price: ["is required"]}
+      expect(master).not_to be_valid
+      expect(master.errors).to eq({price: ["is required"]})
     end
     it "#update_attributes returns false instead of raising errors" do
       master = @master_class.new
-      master.update_attributes(name: "Single Standard").should be_false
-      master.should be_new
-      master.errors.should == {price: ["is required"]}
-      master.update_attributes(price: 98).should be_true
+      expect(master.update_attributes(name: "Single Standard")).to be_falsey
+      expect(master).to be_new
+      expect(master.errors).to eq({price: ["is required"]})
+      expect(master.update_attributes(price: 98)).to be_truthy
     end
     it "allows creating a master and its first version in one step" do
       master = @master_class.new
       result = master.update_attributes name: "Single Standard", price: 98
-      result.should be_true
-      result.should == master
-      master.should_not be_new
-      master.should have_versions %Q{
+      expect(result).to be_truthy
+      expect(result).to eq(master)
+      expect(master).not_to be_new
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
       }
@@ -48,7 +48,7 @@ if DbHelpers.pg?
     it "allows creating a new version in the past" do
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today-1
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-27 | MAX DATE | true    |
       }
@@ -56,7 +56,7 @@ if DbHelpers.pg?
     it "allows creating a new version in the future" do
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today+1
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-29 | MAX DATE |         |
       }
@@ -65,7 +65,7 @@ if DbHelpers.pg?
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE |         |
         | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
@@ -76,7 +76,7 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes price: 94
       master.update_attributes name: "King Size"
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE |         |
         | Single Standard | 94    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE |         |
@@ -88,7 +88,7 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       Timecop.freeze Date.today+1
       master.update_attributes price: 94
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
         | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
@@ -99,9 +99,9 @@ if DbHelpers.pg?
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+1
       Timecop.freeze Date.today+1
-      master.update_attributes(price: 94).should be_false
+      expect(master.update_attributes(price: 94)).to be_falsey
       master.update_attributes name: "Single Standard", price: 94
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-29 |         |
         | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 | MAX DATE   | true    |
@@ -112,7 +112,7 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       Timecop.freeze Date.today+1
       master.update_attributes valid_to: Date.today+10
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
         | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
@@ -127,12 +127,12 @@ if DbHelpers.pg?
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98, valid_to: Date.today+2
       Timecop.freeze Date.today+1
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-30 | true    |
       }
       master.update_attributes valid_to: nil
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
         | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
@@ -148,7 +148,7 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes price: 98
       master.update_attributes name: "Single Standard", price: 98
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE | true    |
       }
@@ -159,7 +159,7 @@ if DbHelpers.pg?
       Timecop.freeze Date.today+1
       master.update_attributes price: 98, valid_from: Date.today-2
       master.update_attributes price: 98, valid_from: Date.today+1
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
         | Single Standard | 98    | 2009-11-29 |            | 2009-11-27 | 2009-11-28 |         |
@@ -176,7 +176,7 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 95, valid_from: Date.today+4, valid_to: Date.today+6
       Timecop.freeze Date.today+1
       master.update_attributes name: "King Size", valid_to: nil
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
         | Single Standard | 94    | 2009-11-28 |            | 2009-11-30 | 2009-12-02 |         |
@@ -192,7 +192,7 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 95, valid_from: Date.today+4, valid_to: Date.today+6
       Timecop.freeze Date.today+1
       master.update_attributes name: "King Size", valid_to: Date.today+4
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
         | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | 2009-12-02 |         |
@@ -209,7 +209,7 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 95, valid_from: Date.today+4, valid_to: Date.today+6
       Timecop.freeze Date.today+1
       master.update_attributes name: "King Size", valid_to: Time.utc(9999)
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
         | Single Standard | 94    | 2009-11-28 | 2009-11-29 | 2009-11-30 | 2009-12-02 |         |
@@ -224,8 +224,8 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
       Timecop.freeze Date.today+1
-      master.current_version.destroy.should be_true
-      master.should have_versions %Q{
+      expect(master.current_version.destroy).to be_truthy
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 92    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
@@ -240,8 +240,8 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
       Timecop.freeze Date.today+1
-      master.current_version.destroy(expand_previous_version: true).should be_true
-      master.should have_versions %Q{
+      expect(master.current_version.destroy(expand_previous_version: true)).to be_truthy
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 92    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
@@ -256,8 +256,8 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
       Timecop.freeze Date.today+1
-      master.versions.last.destroy.should be_true
-      master.should have_versions %Q{
+      expect(master.versions.last.destroy).to be_truthy
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
@@ -270,8 +270,8 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
       Timecop.freeze Date.today+1
-      master.versions.last.destroy(expand_previous_version: false).should be_true
-      master.should have_versions %Q{
+      expect(master.versions.last.destroy(expand_previous_version: false)).to be_truthy
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-30 | true    |
@@ -283,8 +283,8 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
       Timecop.freeze Date.today+1
-      master.destroy.should be_true
-      master.should have_versions %Q{
+      expect(master.destroy).to be_truthy
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | 2009-11-30 |         |
@@ -298,7 +298,7 @@ if DbHelpers.pg?
       master2 = @master_class.find id: master.id
       master.update_attributes name: "Single Standard", price: 94
       master2.update_attributes name: "Single Standard", price: 95
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
         | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
@@ -313,7 +313,7 @@ if DbHelpers.pg?
       master2 = @master_class.find id: master.id
       master.update_attributes price: 94
       master2.update_attributes name: "King Size"
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
         | Single Standard | 98    | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
@@ -324,11 +324,11 @@ if DbHelpers.pg?
     it "can expire invalid versions" do
       master = @master_class.new.update_attributes name: "Single Standard", price: 98
       master.current_version.price = nil
-      master.current_version.should_not be_valid
+      expect(master.current_version).not_to be_valid
       master.current_version.save validate: false
       Timecop.freeze Date.today+1
       master.update_attributes price: 94
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard |       | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   |         |
         | Single Standard |       | 2009-11-29 |            | 2009-11-28 | 2009-11-29 |         |
@@ -344,17 +344,17 @@ if DbHelpers.pg?
         initial_today = Date.today
         Timecop.freeze initial_today+1 do
           master.update_attributes valid_from: initial_today+4, name: "King Size", price: 15, length: 2, width: 2
-          master.propagated_during_last_save.should have(0).item
+          expect(master.propagated_during_last_save.size).to eq(0)
         end
         Timecop.freeze initial_today+2 do
           master.update_attributes valid_from: initial_today+3, length: 1, width: 1
-          master.propagated_during_last_save.should have(0).item
+          expect(master.propagated_during_last_save.size).to eq(0)
         end
         Timecop.freeze initial_today+3 do
           master.update_attributes valid_from: initial_today+2, length: 3, width: 4
-          master.propagated_during_last_save.should have(1).item
+          expect(master.propagated_during_last_save.size).to eq(1)
         end
-        master.should have_versions %Q{
+        expect(master).to have_versions %Q{
           | name            | price | length | width | created_at | expired_at | valid_from | valid_to   | current |
           | Single Standard | 12    |        | 1     | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
           | Single Standard | 12    |        | 1     | 2009-11-29 | 2009-11-30 | 2009-11-28 | 2009-12-02 |         |
@@ -373,10 +373,10 @@ if DbHelpers.pg?
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-      @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be
+      expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be
       Timecop.freeze Date.today+1
       master.destroy
-      @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be_nil
+      expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be_nil
     end
     it "allows loading masters with a current version" do
       master_destroyed = @master_class.new
@@ -386,27 +386,27 @@ if DbHelpers.pg?
       master_with_current.update_attributes name: "Single Standard", price: 94
       master_with_future = @master_class.new
       master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-      @master_class.with_current_version.all.should have(1).item
+      expect(@master_class.with_current_version.all.size).to eq(1)
     end
     it "gets pending or current version attributes" do
       master = @master_class.new
-      master.attributes.should == {}
-      master.pending_version.should be_nil
-      master.current_version.should be_nil
-      master.name.should be_nil
+      expect(master.attributes).to eq({})
+      expect(master.pending_version).to be_nil
+      expect(master.current_version).to be_nil
+      expect(master.name).to be_nil
 
-      master.pending_or_current_version.name.should be_nil
+      expect(master.pending_or_current_version.name).to be_nil
       master.update_attributes name: "Single Standard", price: 98
-      master.attributes[:name].should == "Single Standard"
-      master.pending_version.should be_nil
-      master.pending_or_current_version.name.should == "Single Standard"
-      master.name.should == "Single Standard"
+      expect(master.attributes[:name]).to eq("Single Standard")
+      expect(master.pending_version).to be_nil
+      expect(master.pending_or_current_version.name).to eq("Single Standard")
+      expect(master.name).to eq("Single Standard")
 
       master.attributes = {name: "King Size"}
-      master.attributes[:name].should == "King Size"
-      master.pending_version.should be
-      master.pending_or_current_version.name.should == "King Size"
-      master.name.should == "King Size"
+      expect(master.attributes[:name]).to eq("King Size")
+      expect(master.pending_version).to be
+      expect(master.pending_or_current_version.name).to eq("King Size")
+      expect(master.name).to eq("King Size")
     end
     it "allows to go back in time" do
       master = @master_class.new
@@ -417,7 +417,7 @@ if DbHelpers.pg?
       Timecop.freeze Date.today+1
       master.update_attributes price: 94
       master.update_attributes price: 96, valid_from: Date.today+2
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | 2009-11-29 |         |
         | Single Standard | 95    | 2009-11-28 | 2009-11-29 | 2009-11-29 | 2009-11-30 |         |
@@ -426,44 +426,44 @@ if DbHelpers.pg?
         | Single Standard | 94    | 2009-11-29 |            | 2009-11-29 | 2009-11-30 | true    |
         | Single Standard | 96    | 2009-11-29 |            | 2009-12-01 | MAX DATE   |         |
       }
-      master.current_version.price.should == 94
+      expect(master.current_version.price).to eq(94)
       Sequel::Plugins::Bitemporal.at(Date.today-1) do
-        master.current_version(true).price.should == 98
+        expect(master.current_version(true).price).to eq(98)
       end
       Sequel::Plugins::Bitemporal.at(Date.today+1) do
-        master.current_version(true).price.should == 93
+        expect(master.current_version(true).price).to eq(93)
       end
       Sequel::Plugins::Bitemporal.at(Date.today+2) do
-        master.current_version(true).price.should == 96
+        expect(master.current_version(true).price).to eq(96)
       end
       Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today-1) do
-        master.current_version(true).price.should == 95
-        master.current_version.should be_current
+        expect(master.current_version(true).price).to eq(95)
+        expect(master.current_version).to be_current
         Sequel::Plugins::Bitemporal.at(Date.today-1) do
-          master.current_version(true).price.should == 98
+          expect(master.current_version(true).price).to eq(98)
         end
         Sequel::Plugins::Bitemporal.at(Date.today+1) do
-          master.current_version(true).price.should == 93
+          expect(master.current_version(true).price).to eq(93)
         end
         Sequel::Plugins::Bitemporal.at(Date.today+2) do
-          master.current_version(true).price.should == 91
+          expect(master.current_version(true).price).to eq(91)
         end
       end
     end
     it "correctly reset time if failure when going back in time" do
       before = Sequel::Plugins::Bitemporal.now
-      lambda do
+      expect do
         Sequel::Plugins::Bitemporal.at(Date.today+2) do
           raise StandardError, "error during back in time"
         end
-      end.should raise_error StandardError
-      Sequel::Plugins::Bitemporal.now.should == before
-      lambda do
+      end.to raise_error StandardError
+      expect(Sequel::Plugins::Bitemporal.now).to eq(before)
+      expect do
         Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+2) do
           raise StandardError, "error during back in time"
         end
-      end.should raise_error StandardError
-      Sequel::Plugins::Bitemporal.now.should == before
+      end.to raise_error StandardError
+      expect(Sequel::Plugins::Bitemporal.now).to eq(before)
     end
     it "allows eager loading with conditions on current or future versions" do
       master = @master_class.new
@@ -472,16 +472,16 @@ if DbHelpers.pg?
       master.update_attributes name: "Single Standard", price: 99
       master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
       res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 99}).all.first
-      res.should be
-      res.current_or_future_versions.should have(1).item
-      res.current_or_future_versions.first.price.should == 99
+      expect(res).to be
+      expect(res.current_or_future_versions.size).to eq(1)
+      expect(res.current_or_future_versions.first.price).to eq(99)
       res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 94}).all.first
-      res.should be
-      res.current_or_future_versions.should have(1).item
-      res.current_or_future_versions.first.price.should == 94
+      expect(res).to be
+      expect(res.current_or_future_versions.size).to eq(1)
+      expect(res.current_or_future_versions.first.price).to eq(94)
       Timecop.freeze Date.today+1
       master.destroy
-      @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all.should be_empty
+      expect(@master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all).to be_empty
     end
     it "allows loading masters with current or future versions" do
       master_destroyed = @master_class.new
@@ -491,15 +491,15 @@ if DbHelpers.pg?
       master_with_current.update_attributes name: "Single Standard", price: 94
       master_with_future = @master_class.new
       master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-      @master_class.with_current_or_future_versions.all.should have(2).item
+      expect(@master_class.with_current_or_future_versions.all.size).to eq(2)
     end
     it "delegates attributes from master to pending_or_current_version" do
       master = @master_class.new
-      master.name.should be_nil
+      expect(master.name).to be_nil
       master.update_attributes name: "Single Standard", price: 98
-      master.name.should == "Single Standard"
+      expect(master.name).to eq("Single Standard")
       master.attributes = {name: "King Size"}
-      master.name.should == "King Size"
+      expect(master.name).to eq("King Size")
     end
     it "avoids delegation with option delegate: false" do
       closure = @version_class
@@ -528,19 +528,19 @@ if DbHelpers.pg?
       master = @master_class.new.update_attributes name: "Single Standard", price: 98
       master.disabled = true
       master.update_attributes price: 94
-      master.reload.disabled.should be_true
+      expect(master.reload.disabled).to be_truthy
     end
     it "uses current version for partial_update even if valid_from is specified" do
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today-2, valid_to: Date.today
       master.update_attributes name: "Single Standard", price: 94
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
         | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
       }
       master.update_attributes name: "King Size", valid_from: Date.today-2
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-28 | 2009-11-26 | 2009-11-28 |         |
         | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
@@ -553,7 +553,7 @@ if DbHelpers.pg?
       Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+1) do
         master.update_attributes name: "King Size"
       end
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
         | King Size       | 98    | 2009-11-29 |            | 2009-11-28 | MAX DATE   |         |
@@ -561,7 +561,7 @@ if DbHelpers.pg?
       Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+2) do
         master.current_version(true).destroy
       end
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-28 | MAX DATE   | true    |
         | King Size       | 98    | 2009-11-29 | 2009-11-30 | 2009-11-28 | MAX DATE   |         |
@@ -572,7 +572,7 @@ if DbHelpers.pg?
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98, valid_from: Date.today-2, valid_to: Date.today
       master.update_attributes name: "Single Standard", price: 94
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 |            | 2009-11-26 | 2009-11-28 |         |
         | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
@@ -582,7 +582,7 @@ if DbHelpers.pg?
           master.update_attributes name: "King Size"
         end
       end
-      master.should have_versions %Q{
+      expect(master).to have_versions %Q{
         | name            | price | created_at | expired_at | valid_from | valid_to   | current |
         | Single Standard | 98    | 2009-11-28 | 2009-11-29 | 2009-11-26 | 2009-11-28 |         |
         | Single Standard | 94    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
@@ -593,32 +593,32 @@ if DbHelpers.pg?
     context "#deleted?" do
       subject{ @master_class.new }
       it "is false unless persisted" do
-        subject.should_not be_deleted
+        expect(subject).not_to be_deleted
       end
       it "is false when persisted with a current version" do
-        subject.update_attributes(name: "Single Standard", price: 94).should_not be_deleted
+        expect(subject.update_attributes(name: "Single Standard", price: 94)).not_to be_deleted
       end
       it "is true when persisted without a current version" do
-        subject.update_attributes(name: "Single Standard", price: 94, valid_from: Date.today+1).should be_deleted
+        expect(subject.update_attributes(name: "Single Standard", price: 94, valid_from: Date.today+1)).to be_deleted
       end
     end
     context "#last_version" do
       subject{ @master_class.new }
       it "is nil unless persisted" do
-        subject.last_version.should be_nil
+        expect(subject.last_version).to be_nil
       end
       it "is current version when persisted with a current version" do
         subject.update_attributes name: "Single Standard", price: 94
-        subject.last_version.should == subject.current_version
+        expect(subject.last_version).to eq(subject.current_version)
       end
       it "is nil with future version but no current version" do
         subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+1
-        subject.last_version.should be_nil
+        expect(subject.last_version).to be_nil
       end
       it "is last version with previous version but no current version" do
         subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today-2, valid_to: Date.today-1
-        subject.current_version.should be_nil
-        subject.last_version.should == subject.versions.last
+        expect(subject.current_version).to be_nil
+        expect(subject.last_version).to eq(subject.versions.last)
       end
     end
     context "#restore" do
@@ -626,13 +626,13 @@ if DbHelpers.pg?
       it "make last version current" do
         subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today-2, valid_to: Date.today-1
         subject.restore
-        subject.current_version.should == subject.last_version
+        expect(subject.current_version).to eq(subject.last_version)
       end
       it "can add additional attributes to apply" do
         subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today-2, valid_to: Date.today-1
         subject.restore name: "New Standard"
-        subject.current_version.name.should == "New Standard"
-        subject.current_version.price.should == 94
+        expect(subject.current_version.name).to eq("New Standard")
+        expect(subject.current_version.price).to eq(94)
       end
     end
   end
@@ -653,8 +653,8 @@ if DbHelpers.pg?
     let(:author){ double :author, audit_kind: "user" }
     it "generates a new audit on creation" do
       master = @master_class.new
-      master.should_receive(:updated_by).and_return author
-      @audit_class.should_receive(:audit).with(
+      expect(master).to receive(:updated_by).and_return author
+      expect(@audit_class).to receive(:audit).with(
         master,
         {},
         hash_including({name: "Single Standard", price: 98}),
@@ -665,9 +665,9 @@ if DbHelpers.pg?
     end
     it "generates a new audit on full update" do
       master = @master_class.new
-      master.should_receive(:updated_by).twice.and_return author
+      expect(master).to receive(:updated_by).twice.and_return author
       master.update_attributes name: "Single Standard", price: 98
-      @audit_class.should_receive(:audit).with(
+      expect(@audit_class).to receive(:audit).with(
         master,
         hash_including({name: "Single Standard", price: 98}),
         hash_including({name: "King size", price: 98}),
@@ -678,9 +678,9 @@ if DbHelpers.pg?
     end
     it "generates a new audit on partial update" do
       master = @master_class.new
-      master.should_receive(:updated_by).twice.and_return author
+      expect(master).to receive(:updated_by).twice.and_return author
       master.update_attributes name: "Single Standard", price: 98
-      @audit_class.should_receive(:audit).with(
+      expect(@audit_class).to receive(:audit).with(
         master,
         hash_including({name: "Single Standard", price: 98}),
         hash_including({name: "King size", price: 98}),
@@ -694,30 +694,30 @@ if DbHelpers.pg?
       begin
         @master_class.instance_variable_set :@propagate_per_column, true
         master = @master_class.new
-        master.should_receive(:updated_by).exactly(8).times.and_return author
+        expect(master).to receive(:updated_by).exactly(8).times.and_return author
 
         master.update_attributes name: "Single Standard", price: 12, length: nil, width: 1
         initial_today = Date.today
         Timecop.freeze initial_today+1 do
           Sequel::Plugins::Bitemporal.at initial_today+4 do
             master.update_attributes valid_from: initial_today+4, name: "King Size", price: 15, length: 2, width: 2
-            master.propagated_during_last_save.should have(0).item
+            expect(master.propagated_during_last_save.size).to eq(0)
           end
         end
         Timecop.freeze initial_today+2 do
           Sequel::Plugins::Bitemporal.at initial_today+3 do
             master.update_attributes valid_from: initial_today+3, length: 1, width: 1
-            master.propagated_during_last_save.should have(0).item
+            expect(master.propagated_during_last_save.size).to eq(0)
           end
         end
-        @audit_class.should_receive(:audit).with(
+        expect(@audit_class).to receive(:audit).with(
           master,
           hash_including({name: "Single Standard", price: 12, length: nil, width: 1}),
           hash_including({name: "Single Standard", price: 12, length: 3, width: 4}),
           initial_today+2,
           author
         )
-        @audit_class.should_receive(:audit).with(
+        expect(@audit_class).to receive(:audit).with(
           master,
           hash_including({name: "Single Standard", price: 12, length: 1, width: 1}),
           hash_including({name: "Single Standard", price: 12, length: 1, width: 4}),
@@ -727,7 +727,7 @@ if DbHelpers.pg?
         Timecop.freeze initial_today+3 do
           Sequel::Plugins::Bitemporal.at initial_today+2 do
             master.update_attributes valid_from: initial_today+2, length: 3, width: 4
-            master.propagated_during_last_save.should have(1).item
+            expect(master.propagated_during_last_save.size).to eq(1)
           end
         end
       ensure
@@ -751,8 +751,8 @@ if DbHelpers.pg?
     end
     it "generates a new audit on creation" do
       master = @master_class.new
-      master.should_receive(:author).and_return author
-      @audit_class.should_receive(:audit).with(
+      expect(master).to receive(:author).and_return author
+      expect(@audit_class).to receive(:audit).with(
         master,
         {},
         hash_including({name: "Single Standard", price: 98}),
@@ -763,9 +763,9 @@ if DbHelpers.pg?
     end
     it "generates a new audit on full update" do
       master = @master_class.new
-      master.should_receive(:author).twice.and_return author
+      expect(master).to receive(:author).twice.and_return author
       master.update_attributes name: "Single Standard", price: 98
-      @audit_class.should_receive(:audit).with(
+      expect(@audit_class).to receive(:audit).with(
         master,
         hash_including({name: "Single Standard", price: 98}),
         hash_including({name: "King size", price: 98}),
@@ -776,9 +776,9 @@ if DbHelpers.pg?
     end
     it "generates a new audit on partial update" do
       master = @master_class.new
-      master.should_receive(:author).twice.and_return author
+      expect(master).to receive(:author).twice.and_return author
       master.update_attributes name: "Single Standard", price: 98
-      @audit_class.should_receive(:audit).with(
+      expect(@audit_class).to receive(:audit).with(
         master,
         hash_including({name: "Single Standard", price: 98}),
         hash_including({name: "King size", price: 98}),

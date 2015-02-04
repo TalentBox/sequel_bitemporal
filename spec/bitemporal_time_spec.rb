@@ -12,34 +12,34 @@ describe "Sequel::Plugins::Bitemporal" do
     Timecop.return
   end
   it "checks version class is given" do
-    lambda{
+    expect{
       @version_class.plugin :bitemporal
-    }.should raise_error Sequel::Error, "please specify version class to use for bitemporal plugin"
+    }.to raise_error Sequel::Error, "please specify version class to use for bitemporal plugin"
   end
   it "checks required columns are present" do
-    lambda{
+    expect{
       @version_class.plugin :bitemporal, :version_class => @master_class
-    }.should raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
+    }.to raise_error Sequel::Error, "bitemporal plugin requires the following missing columns on version class: master_id, valid_from, valid_to, created_at, expired_at"
   end
   it "propagates errors from version to master" do
     master = @master_class.new
-    master.should be_valid
+    expect(master).to be_valid
     master.attributes = {name: "Single Standard"}
-    master.should_not be_valid
-    master.errors.should == {price: ["is required"]}
+    expect(master).not_to be_valid
+    expect(master.errors).to eq({price: ["is required"]})
   end
   it "#update_attributes returns false instead of raising errors" do
     master = @master_class.new
-    master.update_attributes(name: "Single Standard").should be_false
-    master.should be_new
-    master.errors.should == {price: ["is required"]}
-    master.update_attributes(price: 98).should be_true
+    expect(master.update_attributes(name: "Single Standard")).to be_falsey
+    expect(master).to be_new
+    expect(master.errors).to eq({price: ["is required"]})
+    expect(master.update_attributes(price: 98)).to be_truthy
   end
   it "allows creating a master and its first version in one step" do
     master = @master_class.new
-    master.update_attributes(name: "Single Standard", price: 98).should be_true
-    master.should_not be_new
-    master.should have_versions %Q{
+    expect(master.update_attributes(name: "Single Standard", price: 98)).to be_truthy
+    expect(master).not_to be_new
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000 | MAX TIME | true    |
     }
@@ -47,7 +47,7 @@ describe "Sequel::Plugins::Bitemporal" do
   it "allows creating a new version in the past" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_from: Time.now-hour
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 09:00:00 +0000 | MAX TIME | true    |
     }
@@ -55,7 +55,7 @@ describe "Sequel::Plugins::Bitemporal" do
   it "allows creating a new version in the future" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_from: Time.now+hour
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 11:00:00 +0000 | MAX TIME |         |
     }
@@ -64,7 +64,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME |         |
       | Single Standard | 94    | 2009-11-28 10:00:00 +0000 |                           | 2009-11-28 10:00:00 +0000 | MAX TIME | true    |
@@ -75,7 +75,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes price: 94
     master.update_attributes name: "King Size"
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME |         |
       | Single Standard | 94    | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME |         |
@@ -87,7 +87,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+hour
     master.update_attributes price: 94
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
       | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |                           | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 |         |
@@ -98,9 +98,9 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_to: Time.now+hour
     Timecop.freeze Time.now+hour
-    master.update_attributes(price: 94).should be_false
+    expect(master.update_attributes(price: 94)).to be_falsey
     master.update_attributes name: "Single Standard", price: 94
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 |         |
       | Single Standard | 94    | 2009-11-28 11:00:00 +0000 |            | 2009-11-28 11:00:00 +0000 | MAX TIME                  | true    |
@@ -111,7 +111,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+hour
     master.update_attributes valid_to: Time.now+10*hour
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
       | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |                           | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 |         |
@@ -126,12 +126,12 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98, valid_to: Time.now+2*hour
     Timecop.freeze Time.now+hour
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 | true    |
     }
     master.update_attributes valid_to: nil
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
       | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |                           | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 |         |
@@ -147,7 +147,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes price: 98
     master.update_attributes name: "Single Standard", price: 98
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from               | valid_to | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000| MAX TIME | true    |
     }
@@ -158,7 +158,7 @@ describe "Sequel::Plugins::Bitemporal" do
     Timecop.freeze Time.now+hour
     master.update_attributes price: 98, valid_from: Time.now-2*hour
     master.update_attributes price: 98, valid_from: Time.now+1*hour
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 |            | 2009-11-28 10:00:00 +0000 | MAX TIME                  | true    |
       | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |            | 2009-11-28 09:00:00 +0000 | 2009-11-28 10:00:00 +0000 |         |
@@ -175,7 +175,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 95, valid_from: Time.now+4*hour, valid_to: Time.now+6*hour
     Timecop.freeze Time.now+hour
     master.update_attributes name: "King Size", valid_to: nil
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
       | Single Standard | 94    | 2009-11-28 10:00:00 +0000 |                           | 2009-11-28 12:00:00 +0000 | 2009-11-28 14:00:00 +0000 |         |
@@ -191,7 +191,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 95, valid_from: Time.now+4*hour, valid_to: Time.now+6*hour
     Timecop.freeze Time.now+hour
     master.update_attributes name: "King Size", valid_to: Time.now+4*hour
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
       | Single Standard | 94    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 12:00:00 +0000 | 2009-11-28 14:00:00 +0000 |         |
@@ -208,7 +208,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 95, valid_from: Time.now+4*hour, valid_to: Time.now+6*hour
     Timecop.freeze Time.now+hour
     master.update_attributes name: "King Size", valid_to: Time.utc(9999)
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
       | Single Standard | 94    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 12:00:00 +0000 | 2009-11-28 14:00:00 +0000 |         |
@@ -222,8 +222,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
     Timecop.freeze Time.now+hour
-    master.current_version.destroy.should be_true
-    master.should have_versions %Q{
+    expect(master.current_version.destroy).to be_truthy
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
@@ -236,8 +236,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
     Timecop.freeze Time.now+hour
-    master.versions.last.destroy.should be_true
-    master.should have_versions %Q{
+    expect(master.versions.last.destroy).to be_truthy
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
@@ -250,8 +250,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
     Timecop.freeze Time.now+hour
-    master.destroy.should be_true
-    master.should have_versions %Q{
+    expect(master.destroy).to be_truthy
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | 2009-11-28 12:00:00 +0000 |         |
@@ -265,7 +265,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master2 = @master_class.find id: master.id
     master.update_attributes name: "Single Standard", price: 94
     master2.update_attributes name: "Single Standard", price: 95
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
       | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |                           | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 |         |
@@ -280,7 +280,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master2 = @master_class.find id: master.id
     master.update_attributes price: 94
     master2.update_attributes name: "King Size"
-    master.should have_versions %Q{
+    expect(master).to have_versions %Q{
       | name            | price | created_at                | expired_at                | valid_from                | valid_to                  | current |
       | Single Standard | 98    | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 | 2009-11-28 10:00:00 +0000 | MAX TIME                  |         |
       | Single Standard | 98    | 2009-11-28 11:00:00 +0000 |                           | 2009-11-28 10:00:00 +0000 | 2009-11-28 11:00:00 +0000 |         |
@@ -292,10 +292,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-    @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be
+    expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be
     Timecop.freeze Time.now+hour
     master.destroy
-    @master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first.should be_nil
+    expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be_nil
   end
   it "allows loading masters with a current version" do
     master_destroyed = @master_class.new
@@ -305,52 +305,52 @@ describe "Sequel::Plugins::Bitemporal" do
     master_with_current.update_attributes name: "Single Standard", price: 94
     master_with_future = @master_class.new
     master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-    @master_class.with_current_version.all.should have(1).item
+    expect(@master_class.with_current_version.all.size).to eq(1)
   end
   it "gets pending or current version attributes" do
     master = @master_class.new
-    master.attributes.should == {}
-    master.pending_version.should be_nil
-    master.current_version.should be_nil
-    master.pending_or_current_version.name.should be_nil
-    master.name.should be_nil
+    expect(master.attributes).to eq({})
+    expect(master.pending_version).to be_nil
+    expect(master.current_version).to be_nil
+    expect(master.pending_or_current_version.name).to be_nil
+    expect(master.name).to be_nil
 
     master.update_attributes name: "Single Standard", price: 98
-    master.attributes[:name].should == "Single Standard"
-    master.pending_version.should be_nil
-    master.pending_or_current_version.name.should == "Single Standard"
-    master.name.should == "Single Standard"
+    expect(master.attributes[:name]).to eq("Single Standard")
+    expect(master.pending_version).to be_nil
+    expect(master.pending_or_current_version.name).to eq("Single Standard")
+    expect(master.name).to eq("Single Standard")
 
     master.attributes = {name: "King Size"}
-    master.attributes[:name].should == "King Size"
-    master.pending_version.should be
-    master.pending_or_current_version.name.should == "King Size"
-    master.name.should == "King Size"
+    expect(master.attributes[:name]).to eq("King Size")
+    expect(master.pending_version).to be
+    expect(master.pending_or_current_version.name).to eq("King Size")
+    expect(master.name).to eq("King Size")
   end
   it "allows to go back in time" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     Timecop.freeze Time.now+1*hour
     master.update_attributes price: 94
-    master.current_version.price.should == 94
+    expect(master.current_version.price).to eq(94)
     Sequel::Plugins::Bitemporal.as_we_knew_it(Time.now-1*hour) do
-      master.current_version(true).price.should == 98
+      expect(master.current_version(true).price).to eq(98)
     end
   end
   it "correctly reset time if failure when going back in time" do
     before = Sequel::Plugins::Bitemporal.now
-    lambda do
+    expect do
       Sequel::Plugins::Bitemporal.at(Time.now+1*hour) do
         raise StandardError, "error during back in time"
       end
-    end.should raise_error StandardError
-    Sequel::Plugins::Bitemporal.now.should == before
-    lambda do
+    end.to raise_error StandardError
+    expect(Sequel::Plugins::Bitemporal.now).to eq(before)
+    expect do
       Sequel::Plugins::Bitemporal.as_we_knew_it(Time.now-1*hour) do
         raise StandardError, "error during back in time"
       end
-    end.should raise_error StandardError
-    Sequel::Plugins::Bitemporal.now.should == before
+    end.to raise_error StandardError
+    expect(Sequel::Plugins::Bitemporal.now).to eq(before)
   end
   it "allows eager loading with conditions on current or future versions" do
     master = @master_class.new
@@ -359,16 +359,16 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes name: "Single Standard", price: 99
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
     res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 99}).all.first
-    res.should be
-    res.current_or_future_versions.should have(1).item
-    res.current_or_future_versions.first.price.should == 99
+    expect(res).to be
+    expect(res.current_or_future_versions.size).to eq(1)
+    expect(res.current_or_future_versions.first.price).to eq(99)
     res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 94}).all.first
-    res.should be
-    res.current_or_future_versions.should have(1).item
-    res.current_or_future_versions.first.price.should == 94
+    expect(res).to be
+    expect(res.current_or_future_versions.size).to eq(1)
+    expect(res.current_or_future_versions.first.price).to eq(94)
     Timecop.freeze Time.now+1*hour
     master.destroy
-    @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all.should be_empty
+    expect(@master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all).to be_empty
   end
   it "allows loading masters with current or future versions" do
     master_destroyed = @master_class.new
@@ -378,7 +378,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master_with_current.update_attributes name: "Single Standard", price: 94
     master_with_future = @master_class.new
     master_with_future.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-    @master_class.with_current_or_future_versions.all.should have(2).item
+    expect(@master_class.with_current_or_future_versions.all.size).to eq(2)
   end
 end
 describe "Sequel::Plugins::Bitemporal", "with audit" do
@@ -395,8 +395,8 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
   let(:author){ double :author, audit_kind: "user" }
   it "generates a new audit on creation" do
     master = @master_class.new
-    master.should_receive(:updated_by).and_return author
-    @audit_class.should_receive(:audit).with(
+    expect(master).to receive(:updated_by).and_return author
+    expect(@audit_class).to receive(:audit).with(
       master,
       {},
       hash_including({name: "Single Standard", price: 98}),
@@ -407,10 +407,10 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
   end
   it "generates a new audit on full update" do
     master = @master_class.new
-    master.should_receive(:updated_by).twice.and_return author
-    @audit_class.stub(:audit)
+    expect(master).to receive(:updated_by).twice.and_return author
+    allow(@audit_class).to receive(:audit)
     master.update_attributes name: "Single Standard", price: 98
-    @audit_class.should_receive(:audit).with(
+    expect(@audit_class).to receive(:audit).with(
       master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
@@ -421,10 +421,10 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
   end
   it "generates a new audit on partial update" do
     master = @master_class.new
-    master.should_receive(:updated_by).twice.and_return author
-    @audit_class.stub(:audit)
+    expect(master).to receive(:updated_by).twice.and_return author
+    allow(@audit_class).to receive(:audit)
     master.update_attributes name: "Single Standard", price: 98
-    @audit_class.should_receive(:audit).with(
+    expect(@audit_class).to receive(:audit).with(
       master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
@@ -449,8 +449,8 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
   let(:author){ double :author, audit_kind: "user" }
   it "generates a new audit on creation" do
     master = @master_class.new
-    master.should_receive(:author).and_return author
-    @audit_class.should_receive(:audit).with(
+    expect(master).to receive(:author).and_return author
+    expect(@audit_class).to receive(:audit).with(
       master,
       {},
       hash_including({name: "Single Standard", price: 98}),
@@ -461,10 +461,10 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
   end
   it "generates a new audit on update" do
     master = @master_class.new
-    master.should_receive(:author).twice.and_return author
-    @audit_class.stub(:audit)
+    expect(master).to receive(:author).twice.and_return author
+    allow(@audit_class).to receive(:audit)
     master.update_attributes name: "Single Standard", price: 98
-    @audit_class.should_receive(:audit).with(
+    expect(@audit_class).to receive(:audit).with(
       master,
       hash_including({name: "Single Standard", price: 98}),
       hash_including({name: "King size", price: 98}),
