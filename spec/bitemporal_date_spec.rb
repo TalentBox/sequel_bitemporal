@@ -844,4 +844,16 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
     )
     master.update_attributes name: "King size", price: 98
   end
+  it "can redefine base_alias manually" do
+    closure = @version_class
+    redefined_base_alias = Class.new Sequel::Model do
+      set_dataset :rooms
+      plugin :bitemporal, version_class: closure, base_alias: :anything
+    end
+    expect do
+      redefined_base_alias.eager_graph(
+        :current_version
+      ).where("anything_current_version.id IS NOT NULL").first
+    end.not_to raise_error
+  end
 end

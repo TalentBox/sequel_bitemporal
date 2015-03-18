@@ -53,7 +53,9 @@ module Sequel
 
         master.instance_eval do
           @version_class = version
-          base_alias = name ? underscore(demodulize(name)) : table_name
+          base_alias = opts.fetch :base_alias do
+            name ? underscore(demodulize(name)) : table_name
+          end
           @versions_alias = "#{base_alias}_versions".to_sym
           @current_version_alias = "#{base_alias}_current_version".to_sym
           @audit_class = opts[:audit_class]
