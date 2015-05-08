@@ -565,7 +565,7 @@ describe "Sequel::Plugins::Bitemporal" do
     expect(master.price).to eq(98)
   end
   it "avoids delegation of columns which are both in master and version" do
-    closure = @version_class
+    closure = Class.new @version_class
     DB.create_table! :rooms_with_name do
       primary_key :id
       String      :name
@@ -704,6 +704,14 @@ describe "Sequel::Plugins::Bitemporal" do
       expect(subject.current_version.name).to eq("New Standard")
       expect(subject.current_version.price).to eq(94)
     end
+  end
+  it "master.current_version.master is master" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 98
+    expect( master.current_version.master.object_id ).to eq master.object_id
+    # impossible for sequel to resolve because of the eager_graph:
+    master = @master_class.with_current_version.all.first
+    expect( master.current_version.master.object_id ).not_to eq master.object_id
   end
 end
 
