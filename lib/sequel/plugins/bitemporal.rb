@@ -397,6 +397,25 @@ module Sequel
           end
         end
 
+        def next_version
+          @next_version ||= begin
+            return if new?
+            t = ::Sequel::Plugins::Bitemporal.point_in_time
+            n = ::Sequel::Plugins::Bitemporal.now
+            if use_ranges = self.class.use_ranges
+              range_conditions = self.class.existence_range_contains t
+            end
+            versions_dataset.where do
+              if use_ranges
+                range_conditions
+              else
+                (created_at <= t) &
+                Sequel.|({expired_at=>nil}, expired_at > t)
+              end & (valid_from > n)
+            end.order(Sequel.asc(:valid_to), Sequel.desc(:created_at)).first
+          end
+        end
+
         def restore(attrs={})
           return false unless deleted?
           last_version_attributes = if last_version

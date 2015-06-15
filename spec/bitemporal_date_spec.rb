@@ -691,6 +691,31 @@ describe "Sequel::Plugins::Bitemporal" do
       expect(subject.last_version).to eq(subject.versions.last)
     end
   end
+  context "#next_version" do
+    subject{ @master_class.new }
+    it "is nil unless persisted" do
+      expect(subject.next_version).to be_nil
+    end
+    it "is nil with current version and no future version" do
+      subject.update_attributes name: "Single Standard", price: 94
+      expect(subject.next_version).to be_nil
+    end
+    it "is next version with both current version and future version" do
+      subject.update_attributes name: "Single Standard", price: 94
+      subject.update_attributes price: 95, valid_from: Date.today+1
+      expect( subject.current_version ).not_to be_nil
+      expect( subject.current_version.price ).to eq 94
+      expect( subject.next_version ).not_to be_nil
+      expect( subject.next_version.price ).to eq 95
+    end
+    it "is next version with future versions but no current version" do
+      subject.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
+      subject.update_attributes name: "Single Standard", price: 92, valid_from: Date.today+1
+      expect( subject.current_version ).to be_nil
+      expect( subject.next_version ).not_to be_nil
+      expect( subject.next_version.price ).to eq 92
+    end
+  end
   context "#restore" do
     subject{ @master_class.new }
     it "make last version current" do
