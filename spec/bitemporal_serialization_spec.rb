@@ -58,14 +58,15 @@ describe "Sequel::Plugins::Bitemporal", :skip_jdbc_sqlite do
         master.update_attributes valid_from: initial_today+2, length: 3, width: 4
         expect(master.propagated_during_last_save.size).to eq(1)
       end
-      expect(master.versions[0].name).to eq({"full_name" => "Single Standard"})
-      expect(master.versions[1].name).to eq({"full_name" => "Single Standard"})
-      expect(master.versions[2].name).to eq({"full_name" => "King Size"})
-      expect(master.versions[3].name).to eq({"full_name" => "Single Standard"})
-      expect(master.versions[4].name).to eq({"full_name" => "Single Standard"})
-      expect(master.versions[5].name).to eq({"full_name" => "Single Standard"})
-      expect(master.versions[6].name).to eq({"full_name" => "Single Standard"})
-      expect(master.versions[7].name).to eq({"full_name" => "Single Standard"})
+      versions = master.versions_dataset.order(:id).all
+      expect(versions[0].name).to eq({"full_name" => "Single Standard"})
+      expect(versions[1].name).to eq({"full_name" => "Single Standard"})
+      expect(versions[2].name).to eq({"full_name" => "King Size"})
+      expect(versions[3].name).to eq({"full_name" => "Single Standard"})
+      expect(versions[4].name).to eq({"full_name" => "Single Standard"})
+      expect(versions[5].name).to eq({"full_name" => "Single Standard"})
+      expect(versions[6].name).to eq({"full_name" => "Single Standard"})
+      expect(versions[7].name).to eq({"full_name" => "Single Standard"})
     ensure
       @master_class.instance_variable_set :@propagate_per_column, propagate_per_column
     end
