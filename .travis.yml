@@ -1,7 +1,12 @@
+language: ruby
+cache:
+  bundler: true
+sudo: false
 rvm:
   - 1.9.3
-  - 2.0.0
+  - 2.0
   - 2.1
+  - 2.2
   - jruby-19mode
 env:
   - SQLITE=1
