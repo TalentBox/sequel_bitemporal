@@ -523,6 +523,11 @@ describe "Sequel::Plugins::Bitemporal" do
     master.destroy
     expect(@master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all).to be_empty
   end
+  it "association current or future versions ignores versions with valid_from==valid_to" do
+    master = @master_class.new
+    master.update_attributes name: "Single Standard", price: 99, valid_to: Date.today
+    expect(master.current_or_future_versions).to be_empty
+  end
   it "allows loading masters with current or future versions" do
     master_destroyed = @master_class.new
     master_destroyed.update_attributes name: "Single Standard", price: 98

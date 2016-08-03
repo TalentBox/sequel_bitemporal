@@ -126,24 +126,27 @@ module Sequel
           n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
             master.existence_range_contains(t, j) &
-            (Sequel.qualify(j, :valid_to) > n)
+            (Sequel.qualify(j, :valid_to) > n) &
+            (Sequel.qualify(j, :valid_from) != Sequel.qualify(j, :valid_to))
           else
             e = Sequel.qualify j, :expired_at
             (Sequel.qualify(j, :created_at) <= t) &
             Sequel.|({e=>nil}, e > t) &
-            (Sequel.qualify(j, :valid_to) > n)
+            (Sequel.qualify(j, :valid_to) > n) &
+            (Sequel.qualify(j, :valid_from) != Sequel.qualify(j, :valid_to))
           end
         end) do |ds|
           t = Sequel.delay{ ::Sequel::Plugins::Bitemporal.point_in_time }
           n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
             existence_conditions = master.existence_range_contains t
-            ds.where{ existence_conditions & (:valid_to > n) }
+            ds.where{ existence_conditions & (:valid_to > n) & (:valid_from != :valid_to) }
           else
             ds.where do
               (created_at <= t) &
               Sequel.|({expired_at=>nil}, expired_at > t) &
-              (valid_to > n)
+              (valid_to > n) &
+              (valid_from != valid_to)
             end
           end
         end
