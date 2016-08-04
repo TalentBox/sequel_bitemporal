@@ -42,6 +42,7 @@ module Sequel
       def self.configure(master, opts = {})
         version = opts[:version_class]
         raise Error, "please specify version class to use for bitemporal plugin" unless version
+        return version.db.log_info("Version table does not exist for #{version.name}") unless version.db.table_exists?(version.table_name)
         missing = bitemporal_version_columns - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
 
