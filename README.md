@@ -38,6 +38,12 @@ Usage
 
 * Look at the specs for more usage patterns.
 
+Thanks
+------
+
+Thanks to Evgeniy L (fiscal-cliff on github) for his contributions:
+- skip plugin initialization process if versions table does not exist
+
 License
 -------
 
