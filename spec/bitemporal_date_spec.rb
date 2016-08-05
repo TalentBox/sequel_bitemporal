@@ -546,6 +546,8 @@ describe "Sequel::Plugins::Bitemporal" do
     master.attributes = {name: "King Size"}
     expect(master.name).to eq("King Size")
     expect(master.price).to eq(98)
+    master.name = "Master Hotel"
+    expect(master.name).to eq("Master Hotel")
   end
   it "avoids delegation with option delegate: false" do
     closure = @version_class
