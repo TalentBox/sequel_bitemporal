@@ -182,11 +182,14 @@ module Sequel
         end
         unless opts[:delegate]==false
           (version.columns-master.columns-master.excluded_columns).each do |column|
-            master.class_eval <<-EOS
-              def #{column}
-                pending_or_current_version.#{column} if pending_or_current_version
+            master.class_eval do
+              define_method(column) do
+                pending_or_current_version.send(column) if pending_or_current_version
               end
-            EOS
+              define_method(:"#{column}=") do |value|
+                self.attributes = { column => value }
+              end
+            end
           end
         end
       end
