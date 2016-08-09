@@ -585,6 +585,25 @@ describe "Sequel::Plugins::Bitemporal" do
     expect(master.price).to eq(98)
     DB.drop_table :rooms_with_name
   end
+  it "allow assigning version attributes in master only with option writers" do
+    closure = @version_class
+    with_writers_class = Class.new Sequel::Model do
+      set_dataset :rooms
+      plugin :bitemporal, version_class: closure, writers: true
+    end
+    master = @master_class.new
+    expect{ master.name = "Single Standard" }.to raise_error NoMethodError
+    master = with_writers_class.new
+    expect(master.attributes).to eq({})
+    expect(master.pending_version).to be_nil
+    expect(master.current_version).to be_nil
+    expect(master.name).to be_nil
+    master.name = "Single Standard"
+    expect(master.attributes).to include({name: "Single Standard"})
+    expect(master.pending_version).to be
+    expect(master.pending_or_current_version.name).to eq("Single Standard")
+    expect(master.name).to eq("Single Standard")
+  end
   it "get current_version association name from class name" do
     class MyNameVersion < Sequel::Model
       set_dataset :room_versions

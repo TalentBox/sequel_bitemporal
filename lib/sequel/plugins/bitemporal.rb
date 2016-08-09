@@ -182,9 +182,18 @@ module Sequel
         end
         unless opts[:delegate]==false
           (version.columns-master.columns-master.excluded_columns).each do |column|
-            master.class_eval <<-EOS
+            master.class_eval <<-EOS, __FILE__, __LINE__ + 1
               def #{column}
                 pending_or_current_version.#{column} if pending_or_current_version
+              end
+            EOS
+          end
+        end
+        if opts[:writers]
+          (version.columns-master.columns-master.excluded_columns).each do |column|
+            master.class_eval <<-EOS, __FILE__, __LINE__ + 1
+              def #{column}=(value)
+                self.attributes = {"#{column}" => value}
               end
             EOS
           end
