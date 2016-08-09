@@ -41,8 +41,11 @@ Usage
 Thanks
 ------
 
-Thanks to Evgeniy L (fiscal-cliff on github) for his contributions:
+Thanks to Evgeniy L (@fiscal-cliff) for his contributions:
 - skip plugin initialization process if versions table does not exist
+
+Thanks to Ksenia Zalesnaya (@ksenia-zalesnaya) for her contributions:
+- define setter methods for versioned columns
 
 License
 -------
