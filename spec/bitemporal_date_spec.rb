@@ -762,6 +762,33 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.with_current_version.all.first
     expect( master.current_version.master.object_id ).not_to eq master.object_id
   end
+  it "allow defining columns which must be ignored when checking for changes" do
+    closure = @version_class
+    with_excluded_columns = Class.new Sequel::Model do
+      set_dataset :rooms
+      plugin :bitemporal, version_class: closure
+      def excluded_columns_for_changes
+        [:name, :price]
+      end
+    end
+    master = with_excluded_columns.new
+    master.update_attributes name: "Single Standard", price: 98
+    expect(master).to have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
+    }
+    master.update_attributes name: "King Size", price: 94
+    expect(master).to have_versions %Q{
+      | name            | price | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
+    }
+    master.update_attributes length: 1
+    expect(master).to have_versions %Q{
+      | name            | price | length | created_at | expired_at | valid_from | valid_to   | current |
+      | Single Standard | 98    |        | 2009-11-28 | 2009-11-28 | 2009-11-28 | MAX DATE   |         |
+      | King Size       | 94    | 1      | 2009-11-28 |            | 2009-11-28 | MAX DATE   | true    |
+    }
+  end
 end
 
 describe "Sequel::Plugins::Bitemporal", "with audit" do

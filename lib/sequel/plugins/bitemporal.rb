@@ -501,7 +501,8 @@ module Sequel
           updated_by = (send(self.class.audit_updated_by_method) if audited?)
           previous_values = @current_version_values || {}
           current_version_values = {}
-          pending_version.columns.each do |column|
+          columns = pending_version.columns - excluded_columns_for_changes
+          columns.each do |column|
             current_version_values[column] = pending_version.public_send(column)
           end
 
@@ -588,9 +589,10 @@ module Sequel
           return false unless @pending_version
           return true unless current_version?
           @current_version_values = current_version.values
-          pending_version.columns.detect do |key|
-            new_value = pending_version.send key
-            case key
+          columns = pending_version.columns - excluded_columns_for_changes
+          columns.detect do |column|
+            new_value = pending_version.send column
+            case column
             when :id, :master_id, :created_at, :expired_at
               false
             when :valid_from
@@ -607,18 +609,22 @@ module Sequel
             else
               if model.version_uses_string_nilifier
                 if current_version.respond_to? :nil_string?
-                  new_value = nil if current_version.nil_string? key, new_value
-                elsif !model.version_class.skip_input_transformer?(:string_nilifier, key)
+                  new_value = nil if current_version.nil_string? column, new_value
+                elsif !model.version_class.skip_input_transformer?(:string_nilifier, column)
                   new_value = model.version_class.input_transformers[:string_nilifier].call(new_value)
                 end
               end
-              current_version.send(key)!=new_value
+              current_version.send(column)!=new_value
             end
           end
         end
 
         def excluded_columns
           self.class.excluded_columns
+        end
+
+        def excluded_columns_for_changes
+          []
         end
 
         def initial_version
