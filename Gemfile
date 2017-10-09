@@ -1,8 +1,6 @@
 source "http://rubygems.org"
 gemspec
 
-gem "pry"
-
 platforms :ruby do
   gem "pg"
   gem "sqlite3"
