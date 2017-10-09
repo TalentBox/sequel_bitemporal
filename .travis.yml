@@ -3,13 +3,16 @@ cache:
   bundler: true
 sudo: false
 rvm:
-  - 1.9.3
-  - 2.0
-  - 2.1
-  - 2.2
-  - jruby-19mode
+  - 2.2.7
+  - 2.3.4
+  - 2.4.2
+  - jruby-9.1.13.0
+before_script:
+  - psql  -c 'create database sequel_bitemporal_test;' -U postgres
 env:
-  - SQLITE=1
-  - PG=1
-addons:
-  postgresql: 9.2
+  - SQLITE=1 SEQUEL='~> 3.0'
+  - SQLITE=1 SEQUEL='~> 4.0'
+  - SQLITE=1 SEQUEL='~> 5.0'
+  - PG=1 SEQUEL='~> 3.0'
+  - PG=1 SEQUEL='~> 4.0'
+  - PG=1 SEQUEL='~> 5.0'
