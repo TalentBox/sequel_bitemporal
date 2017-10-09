@@ -5,6 +5,7 @@ Dir[File.expand_path("../support/*.rb", __FILE__)].each{|f| require f}
 ENV["TZ"]="UTC"
 
 require "sequel_bitemporal"
+Sequel::Deprecation.output = false
 
 rspec_exclusions = {}
 
