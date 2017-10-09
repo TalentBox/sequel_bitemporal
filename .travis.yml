@@ -16,3 +16,5 @@ env:
   - PG=1 SEQUEL='~> 3.0'
   - PG=1 SEQUEL='~> 4.0'
   - PG=1 SEQUEL='~> 5.0'
+gemfile:
+  - ci/sequel.gemfile
