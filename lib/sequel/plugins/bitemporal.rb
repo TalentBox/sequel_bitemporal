@@ -52,6 +52,21 @@ module Sequel
           master.plugin :typecast_on_load, *master.columns
         end
 
+        # Sequel::Model.def_dataset_method has been deprecated and moved to the
+        # def_dataset_method plugin in Sequel 4.46.0, it was not loaded by
+        # default from 5.0
+        begin
+          master.plugin :def_dataset_method
+        rescue LoadError
+        end
+        # Sequel::Model#set_all has been deprecated and moved to the whitelist
+        # security plugin in Sequel 4.46.0, it was not loaded by default from 5.0
+        begin
+          master.plugin :whitelist_security
+          version.plugin :whitelist_security
+        rescue LoadError
+        end
+
         master.instance_eval do
           @version_class = version
           base_alias = opts.fetch :base_alias do
@@ -153,7 +168,7 @@ module Sequel
         end
         master.def_dataset_method :with_current_or_future_versions do
           eager_graph(:current_or_future_versions).where(
-            Sequel.negate(current_or_future_versions__id: nil)
+            Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil)
           )
         end
         version.many_to_one :master, class: master, key: :master_id
@@ -355,7 +370,11 @@ module Sequel
 
         def destroy
           point_in_time = ::Sequel::Plugins::Bitemporal.point_in_time
-          versions_dataset.where(expired_at: nil).where("valid_to>valid_from").update expired_at: point_in_time
+          versions_dataset.where(
+            expired_at: nil
+          ).where(
+            Sequel.lit("valid_to>valid_from")
+          ).update expired_at: point_in_time
         end
 
         def destroy_version(version, expand_previous_version)
@@ -370,7 +389,7 @@ module Sequel
               previous = versions_dataset.where({
                 expired_at: nil,
                 valid_to: version.valid_from,
-              }).where("valid_to>valid_from").first
+              }).where(Sequel.lit("valid_to>valid_from")).first
               if previous
                 if version_was_valid
                   success &&= save_fossil previous, created_at: point_in_time, valid_from: now, valid_to: version.valid_to
@@ -471,11 +490,11 @@ module Sequel
           lock!
           set master_changes
           expired = versions_dataset.where expired_at: nil
-          expired = expired.exclude "valid_from=valid_to"
-          expired = expired.exclude "valid_to<=?", pending_version.valid_from
-          pending_version.valid_to ||= expired.where("valid_from>?", pending_version.valid_from).min(:valid_from)
+          expired = expired.exclude Sequel.lit("valid_from=valid_to")
+          expired = expired.exclude Sequel.lit("valid_to<=?", pending_version.valid_from)
+          pending_version.valid_to ||= expired.where(Sequel.lit("valid_from>?", pending_version.valid_from)).min(:valid_from)
           pending_version.valid_to ||= Time.utc 9999
-          expired = expired.exclude "valid_from>=?", pending_version.valid_to
+          expired = expired.exclude Sequel.lit("valid_from>=?", pending_version.valid_to)
           expired = expired.all
           expired.each do |expired_version|
             if expired_version.valid_from<pending_version.valid_from && expired_version.valid_to>pending_version.valid_from
@@ -492,9 +511,9 @@ module Sequel
           @propagated_during_last_save = []
           lock!
           futures = versions_dataset.where expired_at: nil
-          futures = futures.exclude "valid_from=valid_to"
-          futures = futures.exclude "valid_to<=?", pending_version.valid_from
-          futures = futures.where "valid_from>?", pending_version.valid_from
+          futures = futures.exclude Sequel.lit("valid_from=valid_to")
+          futures = futures.exclude Sequel.lit("valid_to<=?", pending_version.valid_from)
+          futures = futures.where Sequel.lit("valid_from>?", pending_version.valid_from)
           futures = futures.order(:valid_from).all
 
           to_check_columns = self.class.version_class.columns - excluded_columns

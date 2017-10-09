@@ -382,10 +382,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-    expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be
+    expect(@master_class.eager_graph(:current_version).where(Sequel.lit("rooms_current_version.id IS NOT NULL")).first).to be
     Timecop.freeze Date.today+1
     master.destroy
-    expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be_nil
+    expect(@master_class.eager_graph(:current_version).where(Sequel.lit("rooms_current_version.id IS NOT NULL")).first).to be_nil
   end
   it "allows eager loading via a separate query" do
     master = @master_class.new
@@ -468,25 +468,25 @@ describe "Sequel::Plugins::Bitemporal" do
     }
     expect(master.current_version.price).to eq(94)
     Sequel::Plugins::Bitemporal.at(Date.today-1) do
-      expect(master.current_version(true).price).to eq(98)
+      expect(master.current_version(:reload => true).price).to eq(98)
     end
     Sequel::Plugins::Bitemporal.at(Date.today+1) do
-      expect(master.current_version(true).price).to eq(93)
+      expect(master.current_version(:reload => true).price).to eq(93)
     end
     Sequel::Plugins::Bitemporal.at(Date.today+2) do
-      expect(master.current_version(true).price).to eq(96)
+      expect(master.current_version(:reload => true).price).to eq(96)
     end
     Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today-1) do
-      expect(master.current_version(true).price).to eq(95)
+      expect(master.current_version(:reload => true).price).to eq(95)
       expect(master.current_version).to be_current
       Sequel::Plugins::Bitemporal.at(Date.today-1) do
-        expect(master.current_version(true).price).to eq(98)
+        expect(master.current_version(:reload => true).price).to eq(98)
       end
       Sequel::Plugins::Bitemporal.at(Date.today+1) do
-        expect(master.current_version(true).price).to eq(93)
+        expect(master.current_version(:reload => true).price).to eq(93)
       end
       Sequel::Plugins::Bitemporal.at(Date.today+2) do
-        expect(master.current_version(true).price).to eq(91)
+        expect(master.current_version(:reload => true).price).to eq(91)
       end
     end
   end
@@ -511,17 +511,17 @@ describe "Sequel::Plugins::Bitemporal" do
     Timecop.freeze Date.today+1
     master.update_attributes name: "Single Standard", price: 99
     master.update_attributes name: "Single Standard", price: 94, valid_from: Date.today+2
-    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 99}).all.first
+    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil) & {price: 99}).all.first
     expect(res).to be
     expect(res.current_or_future_versions.size).to eq(1)
     expect(res.current_or_future_versions.first.price).to eq(99)
-    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 94}).all.first
+    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil) & {price: 94}).all.first
     expect(res).to be
     expect(res.current_or_future_versions.size).to eq(1)
     expect(res.current_or_future_versions.first.price).to eq(94)
     Timecop.freeze Date.today+1
     master.destroy
-    expect(@master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all).to be_empty
+    expect(@master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil)).all).to be_empty
   end
   it "association current or future versions ignores versions with valid_from==valid_to" do
     master = @master_class.new
@@ -613,7 +613,7 @@ describe "Sequel::Plugins::Bitemporal" do
       plugin :bitemporal, version_class: MyNameVersion
     end
     expect do
-      MyName.eager_graph(:current_version).where("my_name_current_version.id IS NOT NULL").first
+      MyName.eager_graph(:current_version).where(Sequel.lit("my_name_current_version.id IS NOT NULL")).first
     end.not_to raise_error
     Object.send :remove_const, :MyName
     Object.send :remove_const, :MyNameVersion
@@ -653,7 +653,7 @@ describe "Sequel::Plugins::Bitemporal" do
       | King Size       | 98    | 2009-11-29 |            | 2009-11-28 | MAX DATE   |         |
     }
     Sequel::Plugins::Bitemporal.as_we_knew_it(Date.today+2) do
-      master.current_version(true).destroy
+      master.current_version(:reload => true).destroy
     end
     expect(master).to have_versions %Q{
       | name            | price | created_at | expired_at | valid_from | valid_to   | current |
@@ -937,7 +937,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the a
     expect do
       redefined_base_alias.eager_graph(
         :current_version
-      ).where("anything_current_version.id IS NOT NULL").first
+      ).where(Sequel.lit("anything_current_version.id IS NOT NULL")).first
     end.not_to raise_error
   end
 end

@@ -46,6 +46,18 @@ module DbHelpers
       set_dataset :rooms
       plugin :bitemporal, bitemporal_options
     end
+
+    DB.create_table! :my_names do
+      primary_key :id
+    end
+    DB.create_table! :my_name_versions do
+      primary_key :id
+      foreign_key :master_id, :my_names
+      send(use_time ? :Time : :Date, :created_at)
+      send(use_time ? :Time : :Date, :expired_at)
+      send(use_time ? :Time : :Date, :valid_from)
+      send(use_time ? :Time : :Date, :valid_to)
+    end
   end
 
   def db_truncate

@@ -292,10 +292,10 @@ describe "Sequel::Plugins::Bitemporal" do
     master = @master_class.new
     master.update_attributes name: "Single Standard", price: 98
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-    expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be
+    expect(@master_class.eager_graph(:current_version).where(Sequel.lit("rooms_current_version.id IS NOT NULL")).first).to be
     Timecop.freeze Time.now+hour
     master.destroy
-    expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be_nil
+    expect(@master_class.eager_graph(:current_version).where(Sequel.lit("rooms_current_version.id IS NOT NULL")).first).to be_nil
   end
   it "allows loading masters with a current version" do
     master_destroyed = @master_class.new
@@ -334,7 +334,7 @@ describe "Sequel::Plugins::Bitemporal" do
     master.update_attributes price: 94
     expect(master.current_version.price).to eq(94)
     Sequel::Plugins::Bitemporal.as_we_knew_it(Time.now-1*hour) do
-      expect(master.current_version(true).price).to eq(98)
+      expect(master.current_version(:reload => true).price).to eq(98)
     end
   end
   it "correctly reset time if failure when going back in time" do
@@ -358,17 +358,17 @@ describe "Sequel::Plugins::Bitemporal" do
     Timecop.freeze Time.now+1*hour
     master.update_attributes name: "Single Standard", price: 99
     master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 99}).all.first
+    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil) & {price: 99}).all.first
     expect(res).to be
     expect(res.current_or_future_versions.size).to eq(1)
     expect(res.current_or_future_versions.first.price).to eq(99)
-    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil) & {price: 94}).all.first
+    res = @master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil) & {price: 94}).all.first
     expect(res).to be
     expect(res.current_or_future_versions.size).to eq(1)
     expect(res.current_or_future_versions.first.price).to eq(94)
     Timecop.freeze Time.now+1*hour
     master.destroy
-    expect(@master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(current_or_future_versions__id: nil)).all).to be_empty
+    expect(@master_class.eager_graph(:current_or_future_versions).where(Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil)).all).to be_empty
   end
   it "allows loading masters with current or future versions" do
     master_destroyed = @master_class.new
