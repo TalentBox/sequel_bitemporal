@@ -46,9 +46,7 @@ module Sequel
         missing = bitemporal_version_columns - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
 
-        if Sequel::Plugins::Bitemporal.pg_jdbc?(master.db)
-          master.plugin :pg_typecast_on_load, *master.columns
-        elsif Sequel::Plugins::Bitemporal.jdbc?(master.db)
+        if Sequel::Plugins::Bitemporal.jdbc?(master.db)
           master.plugin :typecast_on_load, *master.columns
         end
 
