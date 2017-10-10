@@ -16,3 +16,9 @@ env:
   - PG=1 SEQUEL='~> 5.0'
 gemfile:
   - ci/sequel.gemfile
+matrix:
+  allow_failures:
+    - rvm: jruby-9.1.13.0
+      env: PG=1 SEQUEL='~> 4.0'
+    - rvm: jruby-9.1.13.0
+      env: PG=1 SEQUEL='~> 5.0'

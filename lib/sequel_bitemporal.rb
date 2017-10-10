@@ -10,10 +10,6 @@ module Sequel
       def self.jdbc?(db)
         db.adapter_scheme==:jdbc
       end
-
-      def self.pg_jdbc?(db)
-        db.database_type==:postgres && jdbc?(db)
-      end
     end
   end
 end
