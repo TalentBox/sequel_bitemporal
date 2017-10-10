@@ -171,9 +171,7 @@ module Sequel
         end
         version.many_to_one :master, class: master, key: :master_id
         version.class_eval do
-          if Sequel::Plugins::Bitemporal.pg_jdbc?(master.db)
-            plugin :pg_typecast_on_load, *columns
-          elsif Sequel::Plugins::Bitemporal.jdbc?(master.db)
+          if Sequel::Plugins::Bitemporal.jdbc?(master.db)
             plugin :typecast_on_load, *columns
           end
 
