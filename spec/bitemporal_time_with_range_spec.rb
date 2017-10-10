@@ -292,10 +292,10 @@ if DbHelpers.pg?
       master = @master_class.new
       master.update_attributes name: "Single Standard", price: 98
       master.update_attributes name: "Single Standard", price: 94, valid_from: Time.now+2*hour
-      expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be
+      expect(@master_class.eager_graph(:current_version).where(Sequel.lit("rooms_current_version.id IS NOT NULL")).first).to be
       Timecop.freeze Time.now+hour
       master.destroy
-      expect(@master_class.eager_graph(:current_version).where("rooms_current_version.id IS NOT NULL").first).to be_nil
+      expect(@master_class.eager_graph(:current_version).where(Sequel.lit("rooms_current_version.id IS NOT NULL")).first).to be_nil
     end
     it "allows loading masters with a current version" do
       master_destroyed = @master_class.new
@@ -334,7 +334,7 @@ if DbHelpers.pg?
       master.update_attributes price: 94
       expect(master.current_version.price).to eq(94)
       Sequel::Plugins::Bitemporal.as_we_knew_it(Time.now-1*hour) do
-        expect(master.current_version(true).price).to eq(98)
+        expect(master.current_version(:reload => true).price).to eq(98)
       end
     end
     it "correctly reset time if failure when going back in time" do

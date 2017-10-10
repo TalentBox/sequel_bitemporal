@@ -10,10 +10,8 @@ rvm:
 before_script:
   - psql  -c 'create database sequel_bitemporal_test;' -U postgres
 env:
-  - SQLITE=1 SEQUEL='~> 3.0'
   - SQLITE=1 SEQUEL='~> 4.0'
   - SQLITE=1 SEQUEL='~> 5.0'
-  - PG=1 SEQUEL='~> 3.0'
   - PG=1 SEQUEL='~> 4.0'
   - PG=1 SEQUEL='~> 5.0'
 gemfile:

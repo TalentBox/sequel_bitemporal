@@ -47,6 +47,9 @@ module DbHelpers
       plugin :bitemporal, bitemporal_options
     end
 
+    DB.drop_table(:my_name_versions) if DB.table_exists?(:my_name_versions)
+    DB.drop_table(:my_names) if DB.table_exists?(:my_names)
+
     DB.create_table! :my_names do
       primary_key :id
     end
