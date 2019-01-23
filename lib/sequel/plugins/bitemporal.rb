@@ -32,7 +32,8 @@ module Sequel
       end
 
       def self.version_foreign_keys(master)
-        [*master.primary_key].size > 1 ? primary_key : :master_id
+        primary_key = [*master.primary_key]
+        primary_key.size > 1 ? primary_key : :master_id
       end
 
       def self.bitemporal_version_columns(master)
