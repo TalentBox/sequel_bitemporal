@@ -37,11 +37,11 @@ module Sequel
       end
 
       def self.bitemporal_version_columns(master)
-        @bitemporal_version_columns ||= [*version_foreign_keys(master), :valid_from, :valid_to, :created_at, :expired_at]
+        [*version_foreign_keys(master), :valid_from, :valid_to, :created_at, :expired_at]
       end
 
       def self.bitemporal_excluded_columns(master)
-        @bitemporal_excluded_columns ||= [:id, *bitemporal_version_columns(master)]
+        [:id, *bitemporal_version_columns(master)]
       end
 
       def self.configure(master, opts = {})
