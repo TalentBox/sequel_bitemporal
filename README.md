@@ -1,9 +1,9 @@
 sequel_bitemporal
 =================
 
-[![Build Status](https://travis-ci.org/TalentBox/sequel_bitemporal.png?branch=master)](https://travis-ci.org/TalentBox/sequel_bitemporal)
+[![Build Status](https://travis-ci.org/TalentBox/sequel_bitemporal.svg?branch=master)](https://travis-ci.org/TalentBox/sequel_bitemporal)
 
-Bitemporal versioning for sequel.
+Bitemporal versioning for [Sequel].
 
 Dependencies
 ------------
@@ -51,3 +51,5 @@ License
 -------
 
 sequel_bitemporal is Copyright © 2011 TalentBox SA. It is free software, and may be redistributed under the terms specified in the LICENSE file.
+
+[Sequel]: http://sequel.jeremyevans.net/
