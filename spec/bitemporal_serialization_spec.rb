@@ -1,7 +1,7 @@
 require "spec_helper"
 require "json"
 
-describe "Sequel::Plugins::Bitemporal", :skip_jdbc_sqlite do
+RSpec.describe "Sequel::Plugins::Bitemporal", :skip_jdbc_sqlite do
   before :all do
     db_setup
     @version_class.instance_eval do

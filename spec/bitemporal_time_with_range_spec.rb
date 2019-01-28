@@ -1,6 +1,6 @@
 require "spec_helper"
 if DbHelpers.pg?
-  describe "Sequel::Plugins::Bitemporal" do
+  RSpec.describe "Sequel::Plugins::Bitemporal" do
     let(:hour){ 3600 }
     before :all do
       db_setup use_time: true, ranges: true
@@ -381,7 +381,7 @@ if DbHelpers.pg?
       expect(@master_class.with_current_or_future_versions.all.size).to eq(2)
     end
   end
-  describe "Sequel::Plugins::Bitemporal", "with audit" do
+  RSpec.describe "Sequel::Plugins::Bitemporal", "with audit" do
     before :all do
       @audit_class = Class.new
       db_setup use_time: true, audit_class: @audit_class, ranges: true
@@ -435,7 +435,7 @@ if DbHelpers.pg?
     end
   end
 
-  describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the author" do
+  RSpec.describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the author" do
     before :all do
       @audit_class = Class.new
       db_setup(

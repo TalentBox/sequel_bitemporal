@@ -1,6 +1,6 @@
 require "spec_helper"
 if DbHelpers.pg?
-  describe "Sequel::Plugins::Bitemporal", "with ranges" do
+  RSpec.describe "Sequel::Plugins::Bitemporal", "with ranges" do
     before :all do
       db_setup ranges: true
     end
@@ -637,7 +637,7 @@ if DbHelpers.pg?
     end
   end
 
-  describe "Sequel::Plugins::Bitemporal", "with audit and ranges" do
+  RSpec.describe "Sequel::Plugins::Bitemporal", "with audit and ranges" do
     before :all do
       @audit_class = Class.new do
         def self.audit(*args); end
@@ -735,7 +735,7 @@ if DbHelpers.pg?
       end
     end
   end
-  describe "Sequel::Plugins::Bitemporal", "with audit, ranges, specifying how to get the author" do
+  RSpec.describe "Sequel::Plugins::Bitemporal", "with audit, ranges, specifying how to get the author" do
     before :all do
       @audit_class = Class.new do
         def self.audit(*args); end

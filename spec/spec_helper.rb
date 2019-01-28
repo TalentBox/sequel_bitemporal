@@ -35,6 +35,7 @@ end
 RSpec.configure do |config|
   config.include DbHelpers
   config.filter_run_excluding rspec_exclusions
+  config.disable_monkey_patching!
   config.before :each do
     db_truncate
   end

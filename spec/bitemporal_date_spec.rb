@@ -1,6 +1,6 @@
 require "spec_helper"
 
-describe "Sequel::Plugins::Bitemporal" do
+RSpec.describe "Sequel::Plugins::Bitemporal" do
   before :all do
     db_setup
   end
@@ -791,7 +791,7 @@ describe "Sequel::Plugins::Bitemporal" do
   end
 end
 
-describe "Sequel::Plugins::Bitemporal", "with audit" do
+RSpec.describe "Sequel::Plugins::Bitemporal", "with audit" do
   before :all do
     @audit_class = Class.new do
       def self.audit(*args); end
@@ -889,7 +889,7 @@ describe "Sequel::Plugins::Bitemporal", "with audit" do
     end
   end
 end
-describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the author" do
+RSpec.describe "Sequel::Plugins::Bitemporal", "with audit, specifying how to get the author" do
   before :all do
     @audit_class = Class.new do
       def self.audit(*args); end
