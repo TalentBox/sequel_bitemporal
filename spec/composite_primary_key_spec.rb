@@ -1,8 +1,20 @@
 require "spec_helper"
 
+BT = Sequel::Plugins::Bitemporal
+
 describe "composite_primary_key" do
   before :all do
     setup_composite_primary_key
+  end
+
+  describe "::version_foreign_keys" do
+    context "when is invoked without args" do
+      it "returns master_id" do
+        expect(BT.bitemporal_excluded_columns).to(
+          eq([:id, :master_id, :valid_from, :valid_to, :created_at, :expired_at])
+        )
+      end
+    end
   end
 
   describe "missing required foreign keys in version table" do
@@ -16,8 +28,6 @@ describe "composite_primary_key" do
   end
 
   describe "versions work correctly" do
-    BT = Sequel::Plugins::Bitemporal
-
     let(:master) { @master_class.new(name: "john Smith") }
     let(:junior) { "Junior Ruby-developer" }
     let(:senior) { "Senior Ruby-developer" }

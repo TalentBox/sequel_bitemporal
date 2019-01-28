@@ -31,16 +31,17 @@ module Sequel
         Thread.current[THREAD_NOW_KEY] || DateTime.now
       end
 
-      def self.version_foreign_keys(master)
+      def self.version_foreign_keys(master = nil)
+        return :master_id unless master
         primary_key = [*master.primary_key]
         primary_key.size > 1 ? primary_key : :master_id
       end
 
-      def self.bitemporal_version_columns(master)
+      def self.bitemporal_version_columns(master = nil)
         [*version_foreign_keys(master), :valid_from, :valid_to, :created_at, :expired_at]
       end
 
-      def self.bitemporal_excluded_columns(master)
+      def self.bitemporal_excluded_columns(master = nil)
         [:id, *bitemporal_version_columns(master)]
       end
 
