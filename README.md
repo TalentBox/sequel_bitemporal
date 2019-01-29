@@ -14,29 +14,37 @@ Dependencies
 Usage
 -----
 
-* Declare bitemporality inside your model:
+Declare bitemporality inside your model:
 
-        class HotelPriceVersion < Sequel::Model
-        end
+```ruby
+class HotelPriceVersion < Sequel::Model
+end
 
-        class HotelPrice < Sequel::Model
-          plugin :bitemporal, version_class: HotelPriceVersion
-        end
+class HotelPrice < Sequel::Model
+  plugin :bitemporal, version_class: HotelPriceVersion
+end
+```
 
-* You can now create a hotel price with bitemporal versions:
+You can now create a hotel price with bitemporal versions:
 
-        price = HotelPrice.new
-        price.update_attributes price: 18
+```ruby
+price = HotelPrice.new
+price.update_attributes price: 18
+```
 
-* To show all versions:
+To show all versions:
 
-        price.versions
+```ruby
+price.versions
+```
 
-* To get current version:
+To show current version:
 
-        price.current_version
+```ruby
+price.current_version
+```
 
-* Look at the specs for more usage patterns.
+Look at the specs for more usage patterns.
 
 Thanks
 ------
@@ -46,9 +54,6 @@ Thanks to Evgeniy L (@fiscal-cliff) for his contributions:
 
 Thanks to Ksenia Zalesnaya (@ksenia-zalesnaya) for her contributions:
 - define setter methods for versioned columns
-
-Thanks to Denis Kalesnikov (@DenisKem) for his contributions:
-- allow composite primary key
 
 License
 -------
