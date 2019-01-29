@@ -63,6 +63,48 @@ module DbHelpers
     end
   end
 
+  def setup_composite_primary_key(with_foreign_key: true)
+    DB.drop_table(:employee_versions) if DB.table_exists?(:employee_versions)
+    DB.drop_table(:employees) if DB.table_exists?(:employees)
+
+    DB.create_table! :employees do
+      Integer :department_id
+      Integer :team_id
+      primary_key [:department_id, :team_id]
+      String :name, null: false
+    end
+
+    DB.create_table! :employee_versions do
+      if with_foreign_key
+        Integer :department_id
+        Integer :team_id
+
+        foreign_key [:department_id, :team_id], :employees
+      end
+
+      primary_key :id
+      String :position
+      Date :created_at
+      Date :expired_at
+      Date :valid_from
+      Date :valid_to
+    end
+
+    @version_class = Class.new Sequel::Model do
+      set_dataset :employee_versions
+    end
+
+    bitemporal_options = {
+      version_class: @version_class,
+      key: [:department_id, :team_id]
+    }
+
+    @master_class = Class.new Sequel::Model do
+      set_dataset :employees
+      plugin :bitemporal, bitemporal_options
+    end
+  end
+
   def db_truncate
     if DbHelpers.pg?
       @version_class.truncate cascade: true

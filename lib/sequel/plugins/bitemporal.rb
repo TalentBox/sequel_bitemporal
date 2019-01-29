@@ -31,19 +31,25 @@ module Sequel
         Thread.current[THREAD_NOW_KEY] || DateTime.now
       end
 
-      def self.bitemporal_version_columns
-        @bitemporal_version_columns ||= [:master_id, :valid_from, :valid_to, :created_at, :expired_at]
+      def self.version_foreign_keys(master = nil)
+        return :master_id unless master
+        primary_key = [*master.primary_key]
+        primary_key.size > 1 ? primary_key : :master_id
       end
 
-      def self.bitemporal_excluded_columns
-        @bitemporal_excluded_columns ||= [:id, *bitemporal_version_columns]
+      def self.bitemporal_version_columns(master = nil)
+        [*version_foreign_keys(master), :valid_from, :valid_to, :created_at, :expired_at]
+      end
+
+      def self.bitemporal_excluded_columns(master = nil)
+        [:id, *bitemporal_version_columns(master)]
       end
 
       def self.configure(master, opts = {})
         version = opts[:version_class]
         raise Error, "please specify version class to use for bitemporal plugin" unless version
         return version.db.log_info("Version table does not exist for #{version.name}") unless version.db.table_exists?(version.table_name)
-        missing = bitemporal_version_columns - version.columns
+        missing = bitemporal_version_columns(master) - version.columns
         raise Error, "bitemporal plugin requires the following missing column#{"s" if missing.size>1} on version class: #{missing.join(", ")}" unless missing.empty?
 
         if Sequel::Plugins::Bitemporal.jdbc?(master.db)
@@ -76,7 +82,7 @@ module Sequel
           @audit_updated_by_method = opts.fetch(:audit_updated_by_method){ :updated_by }
           @propagate_per_column = opts.fetch(:propagate_per_column, false)
           @version_uses_string_nilifier = version.plugins.map(&:to_s).include? "Sequel::Plugins::StringNilifier"
-          @excluded_columns = Sequel::Plugins::Bitemporal.bitemporal_excluded_columns
+          @excluded_columns = Sequel::Plugins::Bitemporal.bitemporal_excluded_columns(master)
           @excluded_columns += Array opts[:excluded_columns] if opts[:excluded_columns]
           @use_ranges = if opts[:ranges]
             db = self.db
@@ -100,8 +106,8 @@ module Sequel
             end
           end
         end
-        master.one_to_many :versions, class: version, key: :master_id, graph_alias_base: master.versions_alias
-        master.one_to_one :current_version, class: version, key: :master_id, graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
+        master.one_to_many :versions, class: version, key: version_foreign_keys(master), graph_alias_base: master.versions_alias
+        master.one_to_one :current_version, class: version, key: version_foreign_keys(master), graph_alias_base: master.current_version_alias, :graph_block=>(proc do |j, lj, js|
           t = Sequel.delay{ ::Sequel::Plugins::Bitemporal.point_in_time }
           n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
@@ -135,7 +141,7 @@ module Sequel
             )
           )
         end
-        master.one_to_many :current_or_future_versions, class: version, key: :master_id, :graph_block=>(proc do |j, lj, js|
+        master.one_to_many :current_or_future_versions, class: version, key: version_foreign_keys(master), :graph_block=>(proc do |j, lj, js|
           t = Sequel.delay{ ::Sequel::Plugins::Bitemporal.point_in_time }
           n = Sequel.delay{ ::Sequel::Plugins::Bitemporal.now }
           if master.use_ranges
@@ -169,7 +175,7 @@ module Sequel
             Sequel.negate(Sequel.qualify(:current_or_future_versions, :id) => nil)
           )
         end
-        version.many_to_one :master, class: master, key: :master_id
+        version.many_to_one :master, class: master, key: version_foreign_keys(master)
         version.class_eval do
           if Sequel::Plugins::Bitemporal.jdbc?(master.db)
             plugin :typecast_on_load, *columns
@@ -319,7 +325,13 @@ module Sequel
 
         def attributes=(attributes)
           @pending_version ||= begin
-            current_attributes = {master_id: id}
+            current_attributes =
+              if composite_primary_key?
+                version_values
+              else
+                { master_id: id }
+              end
+
             current_version.keys.each do |key|
               next if excluded_columns.include? key
               current_attributes[key] = current_version.send key
@@ -327,6 +339,10 @@ module Sequel
             model.version_class.new current_attributes
           end
           pending_version.set_all attributes
+        end
+
+        def version_values
+          version_foreign_keys.map { |k| [k, public_send(k)] }.to_h
         end
 
         def update_attributes(attributes={})
@@ -362,6 +378,10 @@ module Sequel
         def after_save
           super
           _refresh_set_values @values
+        end
+
+        def composite_primary_key?
+          [*primary_key].size > 1
         end
 
         def destroy
@@ -469,6 +489,10 @@ module Sequel
 
         def propagated_during_last_save
           @propagated_during_last_save ||= []
+        end
+
+        def version_foreign_keys
+          composite_primary_key? ? primary_key : :master_id
         end
 
       private
@@ -608,7 +632,7 @@ module Sequel
           columns.detect do |column|
             new_value = pending_version.send column
             case column
-            when :id, :master_id, :created_at, :expired_at
+            when :id, :created_at, :expired_at, *version_foreign_keys
               false
             when :valid_from
               pending_version.values.has_key?(:valid_from) && (

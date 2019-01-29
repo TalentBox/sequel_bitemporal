@@ -47,6 +47,9 @@ Thanks to Evgeniy L (@fiscal-cliff) for his contributions:
 Thanks to Ksenia Zalesnaya (@ksenia-zalesnaya) for her contributions:
 - define setter methods for versioned columns
 
+Thanks to Denis Kalesnikov (@DenisKem) for his contributions:
+- allow composite primary key
+
 License
 -------
 
