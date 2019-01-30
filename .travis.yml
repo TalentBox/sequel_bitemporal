@@ -1,12 +1,15 @@
 language: ruby
+
 cache:
   bundler: true
-sudo: false
+
 rvm:
-  - 2.2.7
-  - 2.3.4
-  - 2.4.2
-  - jruby-9.1.13.0
+  - 2.3.8
+  - 2.4.5
+  - 2.5.3
+  - 2.6.0
+  - jruby-9.1.17.0
+  - jruby-9.2.5.0
 before_script:
   - psql  -c 'create database sequel_bitemporal_test;' -U postgres
 env:
@@ -18,7 +21,11 @@ gemfile:
   - ci/sequel.gemfile
 matrix:
   allow_failures:
-    - rvm: jruby-9.1.13.0
+    - rvm: jruby-9.1.17.0
       env: PG=1 SEQUEL='~> 4.0'
-    - rvm: jruby-9.1.13.0
+    - rvm: jruby-9.1.17.0
+      env: PG=1 SEQUEL='~> 5.0'
+    - rvm: jruby-9.2.5.0
+      env: PG=1 SEQUEL='~> 4.0'
+    - rvm: jruby-9.2.5.0
       env: PG=1 SEQUEL='~> 5.0'
