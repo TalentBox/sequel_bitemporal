@@ -334,7 +334,7 @@ module Sequel
 
             current_version.keys.each do |key|
               next if excluded_columns.include? key
-              current_attributes[key] = current_version.send key
+              current_attributes[key] = current_version.public_send key
             end if current_version?
             model.version_class.new current_attributes
           end
@@ -469,7 +469,7 @@ module Sequel
           last_version_attributes = if last_version
             last_version.columns.each_with_object({}) do |column, hash|
               unless excluded_columns.include? column
-                hash[column] = last_version.send column
+                hash[column] = last_version.public_send column
               end
             end
           else
@@ -539,33 +539,28 @@ module Sequel
           to_check_columns = self.class.version_class.columns - excluded_columns
           updated_by = (send(self.class.audit_updated_by_method) if audited?)
           previous_values = @current_version_values || {}
-          current_version_values = {}
-          columns = pending_version.columns - excluded_columns_for_changes
-          columns.each do |column|
-            current_version_values[column] = pending_version.public_send(column)
-          end
-
+          current_values = values_for_changes pending_version
           futures.each do |future_version|
             attrs = {}
             to_check_columns.each do |col|
               if previous_values[col]==future_version[col] &&
-                  previous_values[col]!=current_version_values[col]
-                attrs[col] = current_version_values[col]
+                  previous_values[col]!=current_values[col]
+                attrs[col] = current_values[col]
               end
             end
             if attrs.any?
               propagated = save_propagated future_version, attrs
+              previous_values = values_for_changes future_version
+              current_values = values_for_changes propagated
               if !propagated.new? && audited? && updated_by
                 self.class.audit_class.audit(
                   self,
-                  future_version.values,
-                  propagated.values,
+                  previous_values,
+                  current_values,
                   propagated.valid_from,
                   updated_by
                 )
               end
-              previous_values = future_version.values.dup
-              current_version_values = propagated.values
               future_version.this.update :expired_at => Sequel::Plugins::Bitemporal.point_in_time
             else
               break
@@ -583,7 +578,7 @@ module Sequel
               self.class.audit_class.audit(
                 self,
                 current_values_for_audit,
-                pending_version.values,
+                values_for_changes(pending_version),
                 pending_version.valid_from,
                 updated_by
               ) if updated_by
@@ -598,7 +593,7 @@ module Sequel
         def save_fossil(expired, attributes={})
           fossil = model.version_class.new
           expired_attributes = expired.keys.each_with_object({}) do |key, hash|
-            hash[key] = expired.send key
+            hash[key] = expired.public_send key
           end
           expired_attributes.delete :id
           fossil.set_all expired_attributes.merge(attributes)
@@ -609,7 +604,7 @@ module Sequel
         def save_propagated(version, attributes={})
           propagated = model.version_class.new
           version_attributes = version.keys.each_with_object({}) do |key, hash|
-            hash[key] = version.send key
+            hash[key] = version.public_send key
           end
           version_attributes.delete :id
           version_attributes[:created_at] = Sequel::Plugins::Bitemporal.point_in_time
@@ -627,10 +622,8 @@ module Sequel
         def pending_version_holds_changes?
           return false unless @pending_version
           return true unless current_version?
-          @current_version_values = current_version.values
-          columns = pending_version.columns - excluded_columns_for_changes
-          columns.detect do |column|
-            new_value = pending_version.send column
+          @current_version_values = values_for_changes current_version
+          values_for_changes(pending_version).any? do |column, new_value|
             case column
             when :id, :created_at, :expired_at, *version_foreign_keys
               false
@@ -653,7 +646,7 @@ module Sequel
                   new_value = model.version_class.input_transformers[:string_nilifier].call(new_value)
                 end
               end
-              current_version.send(column)!=new_value
+              current_version.public_send(column)!=new_value
             end
           end
         end
@@ -668,6 +661,14 @@ module Sequel
 
         def initial_version
           @initial_version ||= model.version_class.new
+        end
+
+        def values_for_changes(version)
+          values = {}
+          (version.columns - excluded_columns_for_changes).each do |column|
+            values[column] = version.public_send column
+          end
+          values
         end
 
       end

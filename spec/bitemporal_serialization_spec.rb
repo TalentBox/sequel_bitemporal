@@ -97,12 +97,10 @@ RSpec.describe "Sequel::Plugins::Bitemporal", :skip_jdbc_sqlite do
       expect(result).to eql [
         [false, 2016, 2017, 10, nil, nil, nil],
         [false, 2017, 2018, 0, 10, nil, "{}"],
-        [false, 2018, 2019, 0, 20, nil, "\"{}\""],
-        [false, 2019, 2020, 10, 20, nil, "\"\\\"{}\\\"\""],
+        [false, 2018, 2019, 0, 20, nil, nil],
+        [false, 2019, 2020, 10, 20, nil, nil],
         [true, 2016, 2017, 0, nil, nil, nil],
         [true, 2017, 2018, 0, 10, nil, nil],
-        [true, 2018, 2019, 0, 20, nil, nil],
-        [true, 2019, 2020, 10, 20, nil, nil],
       ]
     ensure
       @version_class.class_eval do
