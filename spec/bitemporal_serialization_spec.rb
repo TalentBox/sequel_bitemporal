@@ -72,4 +72,44 @@ RSpec.describe "Sequel::Plugins::Bitemporal", :skip_jdbc_sqlite do
     end
   end
 
+  it "can propage changes to future version per column with defaults" do
+    propagate_per_column = @master_class.propagate_per_column
+    begin
+      @master_class.instance_variable_set :@propagate_per_column, true
+      @version_class.class_eval do
+        define_method :name do
+          super() || {}
+        end
+      end
+      master = @master_class.new
+      expect( master.name ).to eql({})
+      expect( master.save ).to be_truthy
+      @version_class.create master_id: master.id, valid_from: Date.parse("2016-01-01"), valid_to: Date.parse("2017-01-01"), price: 0
+      @version_class.create master_id: master.id, valid_from: Date.parse("2017-01-01"), valid_to: Date.parse("2018-01-01"), price: 0, length: 10
+      @version_class.create master_id: master.id, valid_from: Date.parse("2018-01-01"), valid_to: Date.parse("2019-01-01"), price: 0, length: 20
+      @version_class.create master_id: master.id, valid_from: Date.parse("2019-01-01"), valid_to: Date.parse("2020-01-01"), price: 10, length: 20
+      expect(
+        master.update_attributes valid_from: Date.parse("2016-01-01"), price: 10
+      ).to be_truthy
+      result = master.versions_dataset.order(:expired_at, :valid_from).all.map do |version|
+        [!!version.expired_at, version.valid_from.year, version.valid_to.year, version.price, version.length, version.width, version[:name]]
+      end
+      expect(result).to eql [
+        [false, 2016, 2017, 10, nil, nil, nil],
+        [false, 2017, 2018, 0, 10, nil, "{}"],
+        [false, 2018, 2019, 0, 20, nil, "\"{}\""],
+        [false, 2019, 2020, 10, 20, nil, "\"\\\"{}\\\"\""],
+        [true, 2016, 2017, 0, nil, nil, nil],
+        [true, 2017, 2018, 0, 10, nil, nil],
+        [true, 2018, 2019, 0, 20, nil, nil],
+        [true, 2019, 2020, 10, 20, nil, nil],
+      ]
+    ensure
+      @version_class.class_eval do
+        undef_method :name
+      end
+      @master_class.instance_variable_set :@propagate_per_column, propagate_per_column
+    end
+  end
+
 end
