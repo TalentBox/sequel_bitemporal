@@ -5,11 +5,11 @@ cache:
 
 rvm:
   - 2.3.8
-  - 2.4.5
-  - 2.5.3
-  - 2.6.0
+  - 2.4.6
+  - 2.5.5
+  - 2.6.2
   - jruby-9.1.17.0
-  - jruby-9.2.5.0
+  - jruby-9.2.6.0
 before_script:
   - psql  -c 'create database sequel_bitemporal_test;' -U postgres
 env:
@@ -25,7 +25,7 @@ matrix:
       env: PG=1 SEQUEL='~> 4.0'
     - rvm: jruby-9.1.17.0
       env: PG=1 SEQUEL='~> 5.0'
-    - rvm: jruby-9.2.5.0
+    - rvm: jruby-9.2.6.0
       env: PG=1 SEQUEL='~> 4.0'
-    - rvm: jruby-9.2.5.0
+    - rvm: jruby-9.2.6.0
       env: PG=1 SEQUEL='~> 5.0'
