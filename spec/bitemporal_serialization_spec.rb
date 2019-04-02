@@ -91,10 +91,10 @@ RSpec.describe "Sequel::Plugins::Bitemporal", :skip_jdbc_sqlite do
       expect(
         master.update_attributes valid_from: Date.parse("2016-01-01"), price: 10
       ).to be_truthy
-      result = master.versions_dataset.order(:expired_at, :valid_from).all.map do |version|
+      result = master.versions_dataset.all.map do |version|
         [!!version.expired_at, version.valid_from.year, version.valid_to.year, version.price, version.length, version.width, version[:name]]
       end
-      expect(result).to eql [
+      expect(result).to match_array [
         [false, 2016, 2017, 10, nil, nil, nil],
         [false, 2017, 2018, 0, 10, nil, "{}"],
         [false, 2018, 2019, 0, 20, nil, nil],
