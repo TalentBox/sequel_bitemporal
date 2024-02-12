@@ -1,11 +1,24 @@
 module DbHelpers
 
   def self.pg?
-    ENV.has_key? "PG"
+    !ENV.has_key?("TEST_ADAPTER") || ENV["TEST_ADAPTER"]=="postgresql"
   end
 
   def self.jruby?
     (defined?(RUBY_ENGINE) && RUBY_ENGINE == 'jruby') || defined?(JRUBY_VERSION)
+  end
+
+  def self.pg_ruby_connect_uri
+    username = ENV.fetch("TEST_USERNAME", nil)
+    password = ENV.fetch("TEST_PASSWORD", nil)
+    auth = [username, password].compact.join(":")
+
+    uri = "postgresql://#{"#{auth}@" unless auth.empty?}#{ENV.fetch("TEST_DATABASE_HOST", "127.0.0.1")}:#{ENV.fetch("TEST_DATABASE_PORT", "5432")}/#{ENV.fetch("TEST_DATABASE", "sequel_bitemporal_test")}"
+    if jruby?
+      "jdbc:#{uri}"
+    else
+      uri
+    end
   end
 
   def db_setup(opts={})

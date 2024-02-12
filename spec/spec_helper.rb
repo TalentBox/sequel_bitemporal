@@ -12,11 +12,7 @@ rspec_exclusions = {}
 DB = if DbHelpers.pg?
   `createdb sequel_bitemporal_test`
   Sequel.extension :pg_range, :pg_range_ops
-  if ::Sequel::Plugins::Bitemporal.jruby?
-    Sequel.connect "jdbc:postgresql://localhost/sequel_bitemporal_test"
-  else
-    Sequel.postgres "sequel_bitemporal_test"
-  end
+  Sequel.connect DbHelpers.pg_ruby_connect_uri
 else
   if Sequel::Plugins::Bitemporal.jruby?
     rspec_exclusions[:skip_jdbc_sqlite] = true
