@@ -332,7 +332,7 @@ module Sequel
                 { master_id: id }
               end
 
-            current_version.keys.each do |key|
+            current_version.columns.each do |key|
               next if excluded_columns.include? key
               current_attributes[key] = current_version.public_send key
             end if current_version?
@@ -592,7 +592,7 @@ module Sequel
 
         def save_fossil(expired, attributes={})
           fossil = model.version_class.new
-          expired_attributes = expired.keys.each_with_object({}) do |key, hash|
+          expired_attributes = expired.columns.each_with_object({}) do |key, hash|
             hash[key] = expired.public_send key
           end
           expired_attributes.delete :id
@@ -603,7 +603,7 @@ module Sequel
 
         def save_propagated(version, attributes={})
           propagated = model.version_class.new
-          version_attributes = version.keys.each_with_object({}) do |key, hash|
+          version_attributes = version.columns.each_with_object({}) do |key, hash|
             hash[key] = version.public_send key
           end
           version_attributes.delete :id
