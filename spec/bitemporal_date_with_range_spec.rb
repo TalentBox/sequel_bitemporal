@@ -1,4 +1,6 @@
+require "date"
 require "spec_helper"
+
 if DbHelpers.pg?
   RSpec.describe "Sequel::Plugins::Bitemporal", "with ranges" do
     before :all do

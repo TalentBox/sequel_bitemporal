@@ -1,3 +1,4 @@
+require "date"
 require "spec_helper"
 
 RSpec.describe "Sequel::Plugins::Bitemporal" do

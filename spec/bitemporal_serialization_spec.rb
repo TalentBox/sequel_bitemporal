@@ -1,5 +1,6 @@
-require "spec_helper"
+require "date"
 require "json"
+require "spec_helper"
 
 RSpec.describe "Sequel::Plugins::Bitemporal", :skip_jdbc_sqlite do
   before :all do

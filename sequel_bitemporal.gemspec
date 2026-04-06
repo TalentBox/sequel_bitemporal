@@ -18,7 +18,7 @@ Gem::Specification.new do |s|
 
   s.add_runtime_dependency "sequel", ">= 4.0", "< 6.0"
 
-  s.add_development_dependency "rspec", "~> 3.13.0"
+  s.add_development_dependency "rspec", "~> 3.13.2"
   s.add_development_dependency "timecop"
   s.add_development_dependency "rake"
 end
