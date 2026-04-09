@@ -24,7 +24,7 @@ module DbHelpers
   def db_setup(opts={})
     use_time = opts[:use_time]
     DB.drop_table(:room_versions) if DB.table_exists?(:room_versions)
-    DB.drop_table(:rooms, cascade: true) if DB.table_exists?(:rooms)
+    DB.drop_table(:rooms, cascade: DbHelpers.pg?) if DB.table_exists?(:rooms)
     DB.create_table! :rooms do
       primary_key :id
       Boolean     :disabled, null: false, default: false

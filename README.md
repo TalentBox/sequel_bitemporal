@@ -1,15 +1,15 @@
 sequel_bitemporal
 =================
 
-[![Build Status](https://travis-ci.org/TalentBox/sequel_bitemporal.svg?branch=master)](https://travis-ci.org/TalentBox/sequel_bitemporal)
+[![Build Status](https://github.com/TalentBox/sequel_bitemporal/actions/workflows/ci.yml/badge.svg)](https://github.com/TalentBox/sequel_bitemporal/actions/workflows/ci.yml)
 
 Bitemporal versioning for [Sequel].
 
 Dependencies
 ------------
 
-* Ruby >= 1.9.2
-* gem "sequel", "~> 3.30.0"
+* Ruby >= 2.7
+* gem "sequel", ">= 4.0"
 
 Usage
 -----
